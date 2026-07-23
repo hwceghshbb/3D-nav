@@ -1,0 +1,20 @@
+schema: 1
+id: com.bxi.back_flip
+version: 1.0.0
+api: 1
+entrypoint: plugin:create_mod
+visibility: protected
+events:
+  activate: {slot: btn_10, value: 1}
+states:
+  back_flip:
+    manifest:
+      label: 后空翻
+      index: 9
+      group: Advanced
+      icon: rotate_left
+      confirm: true
+      confirm_message: 请确保机器人后方3米范围内没有障碍物
+routes:
+  - {from: com.bxi.normal/normal, event: activate, to: back_flip, transition: soft_switch}
+  - {from: back_flip, event: com.bxi.zero_torque/activate, to: com.bxi.zero_torque/zero_torque}
