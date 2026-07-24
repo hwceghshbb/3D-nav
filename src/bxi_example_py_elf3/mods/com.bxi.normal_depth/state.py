@@ -1,0 +1,317 @@
+from __future__ import annotations
+
+import time
+from threading import Lock
+from typing import TYPE_CHECKING, Optional, Protocol
+
+import numpy as np
+from numpy.typing import NDArray
+from rclpy.qos import QoSProfile, qos_profile_sensor_data
+from sensor_msgs.msg import Image
+
+from bxi_example_py_elf3.utils.mod_system import ResourceHandle
+from bxi_example_py_elf3.utils.robot_state_base import RobotControlState
+from bxi_example_py_elf3.utils.state_library import (
+    NORMAL_STATE,
+    ZERO_TORQUE_STATE,
+)
+from bxi_example_py_elf3.utils.state_machine import StateBehavior
+from bxi_example_py_elf3.utils.transition_core import (
+    EntryFrameProvider,
+    MotorFrame,
+    RunningFrameProvider,
+)
+
+if TYPE_CHECKING:
+    from bxi_example_py_elf3.bxi_example_demo import BxiExample
+
+
+class DepthPolicy(Protocol):
+    target_dof_pos: NDArray[np.floating]
+    kps: NDArray[np.floating]
+    kds: NDArray[np.floating]
+    depth_update_period: float
+
+    def reset(self) -> None:
+        ...
+
+    def inference_step(
+        self,
+        q: NDArray[np.floating],
+        dq: NDArray[np.floating],
+        quat: NDArray[np.floating],
+        omega: NDArray[np.floating],
+        cmd_vel: NDArray[np.floating],
+        depth_image: NDArray[np.float32],
+        *,
+        depth_frame_id: int,
+    ) -> NDArray[np.floating]:
+        ...
+
+
+class NormalDepthState(
+    RobotControlState,
+    EntryFrameProvider,
+    RunningFrameProvider,
+):
+    """Run a locomotion policy using depth images published by another node."""
+
+    _EXPECTED_SHAPES = {
+        "origin_camera": (36, 48),
+        "depth_walk": (64, 36),
+    }
+
+    def __init__(
+        self,
+        name: str,
+        state_id: int,
+        policy: ResourceHandle[DepthPolicy],
+        *,
+        mode: str,
+        depth_image_topic: str,
+        depth_uint16_scale: float,
+        depth_timeout_sec: float,
+    ) -> None:
+        super().__init__(name, state_id)
+        if mode not in self._EXPECTED_SHAPES:
+            raise ValueError(f"unsupported depth mode: {mode}")
+        if not depth_image_topic:
+            raise ValueError("depth image topic must not be empty")
+        if depth_uint16_scale <= 0.0:
+            raise ValueError("depth_uint16_scale must be greater than zero")
+        if depth_timeout_sec <= 0.0:
+            raise ValueError("depth_timeout_sec must be greater than zero")
+
+        self._policy = policy
+        self.mode = mode
+        self.depth_image_topic = depth_image_topic
+        self.expected_depth_shape = self._EXPECTED_SHAPES[mode]
+        self.depth_uint16_scale = depth_uint16_scale
+        self.depth_timeout_sec = depth_timeout_sec
+
+        self._depth_lock = Lock()
+        self._depth_rotated: Optional[NDArray[np.float32]] = None
+        self._latest_depth_frame_id = 0
+        self._last_depth_time: Optional[float] = None
+        self._policy_depth_rotated: Optional[NDArray[np.float32]] = None
+        self._policy_depth_frame_id: Optional[int] = None
+        self._last_policy_depth_time: Optional[float] = None
+        self._last_running_frame: Optional[MotorFrame] = None
+        self._depth_enter_time = time.monotonic()
+        self._missing_depth_warned = False
+        self._bad_depth_warned = False
+        self._depth_timeout_warned = False
+        self._depth_subscription = None
+        self._logger = None
+
+    @property
+    def policy(self) -> DepthPolicy:
+        return self._policy.get()
+
+    def on_bind(self, ctx: BxiExample) -> None:
+        self._logger = ctx.get_logger()
+        qos = QoSProfile(
+            depth=1,
+            durability=qos_profile_sensor_data.durability,
+            reliability=qos_profile_sensor_data.reliability,
+        )
+        self._depth_subscription = ctx.create_subscription(
+            Image,
+            self.depth_image_topic,
+            self.depth_image_callback,
+            qos,
+        )
+        self._logger.info(
+            f"depth state mode={self.mode}, topic={self.depth_image_topic}, "
+            f"post-rotation shape={self.expected_depth_shape}"
+        )
+
+    def on_unbind(self, ctx: BxiExample) -> None:
+        subscription = self._depth_subscription
+        self._depth_subscription = None
+        if subscription is not None:
+            ctx.destroy_subscription(subscription)
+
+    def depth_image_callback(self, msg: Image) -> None:
+        depth_meters = self._depth_msg_to_meters(msg)
+        if depth_meters is None:
+            return
+
+        depth_rotated = np.ascontiguousarray(
+            np.rot90(depth_meters, k=-1).astype(np.float32)
+        )
+        if depth_rotated.shape != self.expected_depth_shape:
+            self._warn_bad_depth_once(
+                "unexpected post-rotation depth shape from "
+                f"{self.depth_image_topic}: got {depth_rotated.shape}, "
+                f"expected {self.expected_depth_shape}"
+            )
+            return
+
+        now = time.monotonic()
+        with self._depth_lock:
+            self._depth_rotated = depth_rotated
+            self._latest_depth_frame_id += 1
+            self._last_depth_time = now
+        self._missing_depth_warned = False
+        self._depth_timeout_warned = False
+
+    def _depth_msg_to_meters(
+        self,
+        msg: Image,
+    ) -> Optional[NDArray[np.float32]]:
+        encoding = msg.encoding.lower()
+        if encoding in ("16uc1", "mono16"):
+            dtype = np.dtype(np.uint16).newbyteorder(
+                ">" if msg.is_bigendian else "<"
+            )
+            scale = self.depth_uint16_scale
+        elif encoding == "32fc1":
+            dtype = np.dtype(np.float32).newbyteorder(
+                ">" if msg.is_bigendian else "<"
+            )
+            scale = 1.0
+        else:
+            self._warn_bad_depth_once(
+                f"unsupported depth image encoding '{msg.encoding}' "
+                f"from {self.depth_image_topic}"
+            )
+            return None
+
+        itemsize = dtype.itemsize
+        row_values = int(msg.step) // itemsize
+        if msg.width <= 0 or msg.height <= 0 or row_values < msg.width:
+            self._warn_bad_depth_once(
+                f"invalid depth image layout from {self.depth_image_topic}: "
+                f"width={msg.width}, height={msg.height}, step={msg.step}"
+            )
+            return None
+
+        expected_values = row_values * int(msg.height)
+        expected_bytes = expected_values * itemsize
+        if len(msg.data) < expected_bytes:
+            self._warn_bad_depth_once(
+                f"incomplete depth image from {self.depth_image_topic}: "
+                f"got {len(msg.data)} bytes, expected {expected_bytes} bytes"
+            )
+            return None
+
+        data = np.frombuffer(msg.data, dtype=dtype, count=expected_values)
+        depth = data.reshape(int(msg.height), row_values)[:, : int(msg.width)]
+        return (depth.astype(np.float32) * scale).copy()
+
+    def _warn_bad_depth_once(self, message: str) -> None:
+        if self._bad_depth_warned:
+            return
+        if self._logger is not None:
+            self._logger.warning(message)
+        else:
+            print(message)
+        self._bad_depth_warned = True
+
+    def on_prepare(
+        self,
+        ctx: BxiExample,
+        from_state: StateBehavior[BxiExample],
+    ) -> None:
+        self.policy.reset()
+        self._depth_enter_time = time.monotonic()
+        self._depth_timeout_warned = False
+        self._policy_depth_rotated = None
+        self._policy_depth_frame_id = None
+        self._last_policy_depth_time = None
+        self._last_running_frame = None
+
+    def get_entry_frame(self, ctx: BxiExample) -> MotorFrame:
+        return self._motor_frame(
+            self.policy.target_dof_pos,
+            self.policy.kps,
+            self.policy.kds,
+        )
+
+    def sample_running_frame(
+        self,
+        ctx: BxiExample,
+        dt: float,
+        *,
+        advance: bool,
+    ) -> Optional[MotorFrame]:
+        if not advance:
+            return self._last_running_frame or self.get_entry_frame(ctx)
+
+        depth_for_inference = self._get_depth_for_inference()
+        if depth_for_inference is None:
+            if not self._missing_depth_warned:
+                if self._logger is not None:
+                    self._logger.warning(
+                        f"waiting for depth image: {self.depth_image_topic}"
+                    )
+                self._missing_depth_warned = True
+            return None
+
+        depth_image, depth_frame_id = depth_for_inference
+        qpos = self.policy.inference_step(
+            ctx.current_q,
+            ctx.current_dq,
+            ctx.current_quat_wxyz,
+            ctx.current_omega,
+            self.get_cmd_vel(ctx),
+            depth_image,
+            depth_frame_id=depth_frame_id,
+        )
+        frame = self._motor_frame(qpos, self.policy.kps, self.policy.kds)
+        self._last_running_frame = frame
+        return frame
+
+    def _get_depth_for_inference(
+        self,
+    ) -> Optional[tuple[NDArray[np.float32], int]]:
+        with self._depth_lock:
+            latest_depth = self._depth_rotated
+            latest_frame_id = self._latest_depth_frame_id
+        if latest_depth is None:
+            return None
+
+        now = time.monotonic()
+        min_interval = float(self.policy.depth_update_period)
+        if (
+            self._policy_depth_rotated is None
+            or self._policy_depth_frame_id is None
+            or self._last_policy_depth_time is None
+            or now - self._last_policy_depth_time >= min_interval
+        ):
+            self._policy_depth_rotated = latest_depth
+            self._policy_depth_frame_id = latest_frame_id
+            self._last_policy_depth_time = now
+        return self._policy_depth_rotated, self._policy_depth_frame_id
+
+    def _is_depth_timed_out(self) -> bool:
+        with self._depth_lock:
+            last_depth_time = self._last_depth_time
+        now = time.monotonic()
+        reference = (
+            self._depth_enter_time
+            if last_depth_time is None
+            else last_depth_time
+        )
+        return now - reference > self.depth_timeout_sec
+
+    def on_update(self, ctx: BxiExample, dt: float) -> None:
+        if ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
+            ctx.request_state(ZERO_TORQUE_STATE, trigger="safety")
+            return
+
+        if self._is_depth_timed_out():
+            if not self._depth_timeout_warned:
+                if self._logger is not None:
+                    self._logger.warning(
+                        "depth image timeout, switching to normal: "
+                        f"{self.depth_image_topic}"
+                    )
+                self._depth_timeout_warned = True
+            ctx.request_state(NORMAL_STATE, trigger="no_depth")
+            return
+
+        frame = self.sample_running_frame(ctx, dt, advance=True)
+        if frame is not None:
+            self._apply_frame(ctx, frame)
