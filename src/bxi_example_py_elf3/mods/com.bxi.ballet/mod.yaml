@@ -14,7 +14,7 @@ states:
   ballet:
     manifest:
       label: 芭蕾舞
-      index: 11
+      priority: 890
       group: Advanced
       icon: wand_stars
       confirm: true

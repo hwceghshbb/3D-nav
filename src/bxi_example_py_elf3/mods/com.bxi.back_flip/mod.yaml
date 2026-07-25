@@ -13,7 +13,7 @@ states:
   back_flip:
     manifest:
       label: 后空翻
-      index: 9
+      priority: 910
       group: Advanced
       icon: rotate_left
       confirm: true

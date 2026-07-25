@@ -16,7 +16,7 @@ states:
   normal_depth:
     manifest:
       label: 深度行走
-      index: 15
+      priority: 850
       group: Advanced
       icon: sensors
       confirm: true
