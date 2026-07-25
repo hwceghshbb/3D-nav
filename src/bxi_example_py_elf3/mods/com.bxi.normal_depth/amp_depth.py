@@ -6,7 +6,7 @@ import os
 import numpy as np
 import onnxruntime as ort
 
-from bxi_example_py_elf3.utils.tfs import get_gravity_orientation
+from bxi_example_py_elf3.mod_api.geometry import get_gravity_orientation
 
 _CV2 = None
 _CV2_IMPORT_TRIED = False

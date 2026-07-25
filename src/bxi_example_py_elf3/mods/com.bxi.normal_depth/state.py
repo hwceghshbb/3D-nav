@@ -9,21 +9,21 @@ from numpy.typing import NDArray
 from rclpy.qos import QoSProfile, qos_profile_sensor_data
 from sensor_msgs.msg import Image
 
-from bxi_example_py_elf3.utils.mod_system import ResourceHandle
-from bxi_example_py_elf3.utils.robot_state_base import RobotControlState
-from bxi_example_py_elf3.utils.state_library import (
+from bxi_example_py_elf3.mod_api import ResourceHandle
+from bxi_example_py_elf3.mod_api import RobotControlState
+from bxi_example_py_elf3.mod_api import (
     NORMAL_STATE,
     ZERO_TORQUE_STATE,
 )
-from bxi_example_py_elf3.utils.state_machine import StateBehavior
-from bxi_example_py_elf3.utils.transition_core import (
+from bxi_example_py_elf3.mod_api import StateBehavior
+from bxi_example_py_elf3.mod_api.transition import (
     EntryFrameProvider,
     MotorFrame,
     RunningFrameProvider,
 )
 
 if TYPE_CHECKING:
-    from bxi_example_py_elf3.bxi_example_demo import BxiExample
+    from bxi_example_py_elf3.mod_api import RobotControlContext
 
 
 class DepthPolicy(Protocol):
@@ -108,14 +108,15 @@ class NormalDepthState(
     def policy(self) -> DepthPolicy:
         return self._policy.get()
 
-    def on_bind(self, ctx: BxiExample) -> None:
-        self._logger = ctx.get_logger()
+    def on_bind(self, ctx: RobotControlContext) -> None:
+        node = ctx.ros_node
+        self._logger = node.get_logger()
         qos = QoSProfile(
             depth=1,
             durability=qos_profile_sensor_data.durability,
             reliability=qos_profile_sensor_data.reliability,
         )
-        self._depth_subscription = ctx.create_subscription(
+        self._depth_subscription = node.create_subscription(
             Image,
             self.depth_image_topic,
             self.depth_image_callback,
@@ -126,11 +127,11 @@ class NormalDepthState(
             f"post-rotation shape={self.expected_depth_shape}"
         )
 
-    def on_unbind(self, ctx: BxiExample) -> None:
+    def on_unbind(self, ctx: RobotControlContext) -> None:
         subscription = self._depth_subscription
         self._depth_subscription = None
         if subscription is not None:
-            ctx.destroy_subscription(subscription)
+            ctx.ros_node.destroy_subscription(subscription)
 
     def depth_image_callback(self, msg: Image) -> None:
         depth_meters = self._depth_msg_to_meters(msg)
@@ -211,8 +212,8 @@ class NormalDepthState(
 
     def on_prepare(
         self,
-        ctx: BxiExample,
-        from_state: StateBehavior[BxiExample],
+        ctx: RobotControlContext,
+        from_state: StateBehavior[RobotControlContext],
     ) -> None:
         self.policy.reset()
         self._depth_enter_time = time.monotonic()
@@ -222,7 +223,7 @@ class NormalDepthState(
         self._last_policy_depth_time = None
         self._last_running_frame = None
 
-    def get_entry_frame(self, ctx: BxiExample) -> MotorFrame:
+    def get_entry_frame(self, ctx: RobotControlContext) -> MotorFrame:
         return self._motor_frame(
             self.policy.target_dof_pos,
             self.policy.kps,
@@ -231,7 +232,7 @@ class NormalDepthState(
 
     def sample_running_frame(
         self,
-        ctx: BxiExample,
+        ctx: RobotControlContext,
         dt: float,
         *,
         advance: bool,
@@ -296,7 +297,7 @@ class NormalDepthState(
         )
         return now - reference > self.depth_timeout_sec
 
-    def on_update(self, ctx: BxiExample, dt: float) -> None:
+    def on_update(self, ctx: RobotControlContext, dt: float) -> None:
         if ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
             ctx.request_state(ZERO_TORQUE_STATE, trigger="safety")
             return
