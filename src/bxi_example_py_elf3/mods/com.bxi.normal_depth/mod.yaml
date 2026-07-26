@@ -12,6 +12,64 @@ requires:
 conflicts: []
 python_exports: []
 
+nodes:
+  realsense_depth_publisher:
+    entrypoint: realsense_depth_node:create_node
+    execution: process
+    lifecycle: mod
+    manifest:
+      label: RealSense 深度相机发布器
+    params:
+      serial: ""
+      depth_w: 480
+      depth_h: 270
+      depth_fps: 60
+      color_w: 848
+      color_h: 480
+      color_fps: 30
+      enable_color: false
+      enable_ir: false
+      enable_imu: false
+      publish_rate_hz: 60
+      out_w: 64
+      out_h: 36
+      hfov: 89.24
+      vfov: 58.06
+      publish_full: true
+      publish_origin_camera: true
+      origin_out_w: 36
+      origin_out_h: 48
+      origin_hfov: 45.2
+      origin_vfov: 58.0616969
+      origin_min_dist: 0.2
+      origin_max_dist: 3.0
+      decimation: 1
+      min_dist: 0.2
+      max_dist: 2.5
+      spat_alpha: 0.45
+      spat_delta: 20.0
+      spat_holes: 2
+      temp_holes: 4
+      temp_alpha: 0.45
+      temp_delta: 20.0
+      hole1: 1
+      hole2: 2
+      frame_depth: camera_depth_optical_frame
+      frame_color: camera_color_optical_frame
+      topic_depth: /camera/depth/image_raw
+      topic_depth_info: /camera/depth/camera_info
+      topic_small: /camera/depth/image_64x36
+      topic_small_info: /camera/depth/camera_info_64x36
+      topic_origin: /camera/depth/image_36x48
+      topic_origin_info: /camera/depth/camera_info_36x48
+      topic_color: /camera/color/image_raw
+      topic_ir1: /camera/infra1/image_raw
+      topic_ir2: /camera/infra2/image_raw
+      topic_imu: /camera/imu
+    restart:
+      max_attempts: 3
+      delay: 1.0
+
 events:
   activate:
     slot: btn_10
@@ -25,7 +83,7 @@ states:
       group: Advanced
       icon: sensors
       confirm: true
-      confirm_message: 请先确认外部深度图话题持续发布且机器人前方没有人员
+      confirm_message: 请先确认 RealSense 深度图持续发布且机器人前方没有人员
     speed_profile: com.bxi.basic_actions/normal
     params:
       mode: origin_camera
