@@ -1,16 +1,21 @@
 schema: 1
 id: com.bxi.normal_depth
+name: 深度行走
 version: 1.0.0
 api: 1
+enable: true
 entrypoint: plugin:create_mod
 visibility: protected
-
 requires:
   - id: com.bxi.basic_actions
     version: ">=1,<2"
+conflicts: []
+python_exports: []
 
 events:
-  activate: {slot: btn_10, value: 7}
+  activate:
+    slot: btn_10
+    value: 7
 
 states:
   normal_depth:
@@ -36,7 +41,9 @@ routes:
   - from: normal_depth
     event: com.bxi.basic_actions/normal
     to: com.bxi.basic_actions/normal
-    transition: {profile: dual_running_blend, duration: 1.0}
+    transition:
+      profile: dual_running_blend
+      duration: 1.0
   - from: normal_depth
     event: com.bxi.basic_actions/zero_torque
     to: com.bxi.basic_actions/zero_torque
