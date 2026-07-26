@@ -11,6 +11,10 @@ requires:
     version: ">=1,<2"
 conflicts: []
 python_exports: []
+runtime_requirements:
+  python: []
+  ros: []
+  system: []
 
 nodes:
   realsense_depth_publisher:
@@ -19,6 +23,13 @@ nodes:
     lifecycle: mod
     manifest:
       label: RealSense 深度相机发布器
+    runtime_requirements:
+      python:
+        - import: pyrealsense2
+      ros:
+        - package: sensor_msgs
+      system:
+        - library: realsense2
     params:
       serial: ""
       depth_w: 480
