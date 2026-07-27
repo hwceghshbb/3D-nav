@@ -2,7 +2,7 @@ schema: 1
 id: com.bxi.normal_depth
 name: 深度行走
 version: 1.0.0
-api: ">=1,<2"
+api: ">=1.2,<2"
 enable: true
 entrypoint: plugin:create_mod
 visibility: protected
@@ -18,9 +18,13 @@ runtime_requirements:
 
 nodes:
   realsense_depth_publisher:
+    runtime: python
     entrypoint: realsense_depth_node:create_node
     execution: process
     lifecycle: mod
+    arguments: []
+    namespace: ""
+    remappings: {}
     manifest:
       label: RealSense 深度相机发布器
     runtime_requirements:
