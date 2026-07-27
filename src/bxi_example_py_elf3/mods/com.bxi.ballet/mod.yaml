@@ -49,3 +49,4 @@ actions:
     action: toggle_pause
     manifest:
       label: 暂停/继续
+      ui: pause
