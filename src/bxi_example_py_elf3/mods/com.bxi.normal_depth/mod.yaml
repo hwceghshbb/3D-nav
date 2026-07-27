@@ -28,8 +28,7 @@ nodes:
         - import: pyrealsense2
       ros:
         - package: sensor_msgs
-      system:
-        - library: realsense2
+      system: []
     params:
       serial: ""
       depth_w: 480

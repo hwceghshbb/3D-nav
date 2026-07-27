@@ -21,7 +21,7 @@ def _load(context: ResourceLoadContext) -> DanceMotionPolicyGravityIsaaclabV3:
 
 
 def create_mod(context: ModLoadContext) -> ModDefinition:
-    context.register_resource(POLICY, _load)
+    context.register_resource(POLICY, _load, loading="eager")
     policy = context.resource(POLICY)
     return ModDefinition(
         state_factories={
