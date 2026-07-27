@@ -99,13 +99,21 @@ states:
       mode: origin_camera
       topic: /camera/depth/image_36x48
       depth_uint16_scale: 0.001
-      depth_timeout_sec: 1.0
+      depth_timeout_sec: 0.5
 
 routes:
   - from: com.bxi.basic_actions/normal
     event: activate
     to: normal_depth
-    transition: first_frame_switch
+    transition:
+      profile: first_frame_switch
+      steps:
+        - type: hold
+          duration: 0.02
+        - type: entry_gain_ramp
+          duration: 0.02
+          kp_from: zero
+          kd_from: target
   - from: normal_depth
     event: com.bxi.basic_actions/normal
     to: com.bxi.basic_actions/normal
