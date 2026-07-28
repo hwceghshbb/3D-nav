@@ -1,4 +1,4 @@
-from bxi_example_py_elf3.mod_api import (
+from bxi_example_py_elf3.framework.mod_api import (
     ModDefinition,
     ModLoadContext,
     ResourceKey,
@@ -6,7 +6,7 @@ from bxi_example_py_elf3.mod_api import (
     StateBuildContext,
 )
 
-from .amp_depth import (
+from bxi_example_py_elf3.policies import (
     HumanoidGaitDepthPolicyIsaaclab,
     HumanoidGaitOriginCameraPolicyIsaaclab,
 )

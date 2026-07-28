@@ -6,7 +6,7 @@ import time
 
 from rclpy.logging import get_logger
 
-from bxi_example_py_elf3.mod_api import NodeBuildContext
+from bxi_example_py_elf3.framework.mod_api import NodeBuildContext
 
 from .orbbec_depth_node import ORBBEC_DEFAULTS, OrbbecDepthPublisher
 from .realsense_depth_node import (

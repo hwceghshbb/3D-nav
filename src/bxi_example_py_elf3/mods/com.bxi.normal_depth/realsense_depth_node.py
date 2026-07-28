@@ -11,7 +11,7 @@ import numpy as np
 from rclpy.node import Node
 from sensor_msgs.msg import CameraInfo, Image, Imu
 
-from bxi_example_py_elf3.mod_api import NodeBuildContext
+from bxi_example_py_elf3.framework.mod_api import NodeBuildContext
 
 
 _DEFAULTS: dict[str, object] = {

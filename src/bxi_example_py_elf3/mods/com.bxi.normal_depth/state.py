@@ -9,43 +9,34 @@ from numpy.typing import NDArray
 from rclpy.qos import QoSProfile, qos_profile_sensor_data
 from sensor_msgs.msg import Image
 
-from bxi_example_py_elf3.mod_api import ResourceHandle
-from bxi_example_py_elf3.mod_api import RobotControlState
-from bxi_example_py_elf3.mod_api import (
-    NORMAL_STATE,
-    ZERO_TORQUE_STATE,
-)
-from bxi_example_py_elf3.mod_api import StateBehavior
-from bxi_example_py_elf3.mod_api.transition import (
+from bxi_example_py_elf3.framework.mod_api import ResourceHandle
+from bxi_example_py_elf3.framework.mod_api import RobotControlState
+from bxi_example_py_elf3.framework.mod_api import StateBehavior
+from bxi_example_py_elf3.framework.mod_api.transition import (
     EntryFrameProvider,
     MotorFrame,
     RunningFrameProvider,
 )
+from bxi_example_py_elf3.framework.inference import InferenceFrame, PolicyOutput
 
 if TYPE_CHECKING:
-    from bxi_example_py_elf3.mod_api import RobotControlContext
+    from bxi_example_py_elf3.framework.mod_api import RobotControlContext
 
 
 class DepthPolicy(Protocol):
-    target: NDArray[np.floating]
-    kp: NDArray[np.floating]
-    kd: NDArray[np.floating]
+    output: PolicyOutput
     depth_update_period: float
 
-    def reset(self) -> None:
+    def reset(self, frame: InferenceFrame) -> None:
         ...
 
     def step(
         self,
-        q: NDArray[np.floating],
-        dq: NDArray[np.floating],
-        quat: NDArray[np.floating],
-        omega: NDArray[np.floating],
-        cmd_vel: NDArray[np.floating],
-        depth_image: NDArray[np.float32],
+        frame: InferenceFrame,
+        dt: float,
         *,
-        depth_frame_id: int,
-    ) -> NDArray[np.floating]:
+        advance: bool = True,
+    ) -> PolicyOutput:
         ...
 
 
@@ -211,7 +202,7 @@ class NormalDepthState(
         ctx: RobotControlContext,
         from_state: StateBehavior[RobotControlContext],
     ) -> None:
-        self.policy.reset()
+        self.policy.reset(ctx.inference_frame)
         self._depth_enter_time = time.monotonic()
         self._depth_timeout_warned = False
         self._policy_depth_rotated = None
@@ -220,11 +211,7 @@ class NormalDepthState(
         self._last_running_frame = None
 
     def get_entry_frame(self, ctx: RobotControlContext) -> MotorFrame:
-        return self._motor_frame(
-            self.policy.target,
-            self.policy.kp,
-            self.policy.kd,
-        )
+        return self._motor_frame_from_target(ctx, self.policy.output.joints)
 
     def sample_running_frame(
         self,
@@ -247,16 +234,15 @@ class NormalDepthState(
             return None
 
         depth_image, depth_frame_id = depth_for_inference
-        qpos = self.policy.step(
-            ctx.current_q,
-            ctx.current_dq,
-            ctx.current_quat_wxyz,
-            ctx.current_omega,
-            self.get_cmd_vel(ctx),
-            depth_image,
-            depth_frame_id=depth_frame_id,
+        self.get_cmd_vel(ctx)
+        ctx.inference_frame.depth = depth_image
+        ctx.inference_frame.depth_frame_id = depth_frame_id
+        output = self.policy.step(
+            ctx.inference_frame,
+            dt,
+            advance=True,
         )
-        frame = self._motor_frame(qpos, self.policy.kp, self.policy.kd)
+        frame = self._motor_frame_from_target(ctx, output.joints)
         self._last_running_frame = frame
         return frame
 
@@ -293,7 +279,7 @@ class NormalDepthState(
 
     def on_update(self, ctx: RobotControlContext, dt: float) -> None:
         if ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
-            ctx.request_state(ZERO_TORQUE_STATE, trigger="safety")
+            ctx.request_state("com.bxi.basic_actions/zero_torque", trigger="safety")
             return
 
         if self._is_depth_timed_out():
@@ -304,7 +290,7 @@ class NormalDepthState(
                         f"{self.depth_image_topic}"
                     )
                 self._depth_timeout_warned = True
-            ctx.request_state(NORMAL_STATE, trigger="no_depth")
+            ctx.request_state("com.bxi.basic_actions/normal", trigger="no_depth")
             return
 
         frame = self.sample_running_frame(ctx, dt, advance=True)

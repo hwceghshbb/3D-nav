@@ -1,6 +1,6 @@
-from bxi_example_py_elf3.inference.beyondmimic import DanceMotionPolicyGravityIsaaclabV3
-from bxi_example_py_elf3.mod_api import ResourceHandle
-from bxi_example_py_elf3.mod_api import MotionReplayState
+from bxi_example_py_elf3.policies import DanceMotionPolicyGravityIsaaclabV3
+from bxi_example_py_elf3.framework.mod_api import ResourceHandle
+from bxi_example_py_elf3.framework.mod_api import MotionReplayState
 
 
 class BalletState(MotionReplayState[DanceMotionPolicyGravityIsaaclabV3]):
@@ -14,6 +14,7 @@ class BalletState(MotionReplayState[DanceMotionPolicyGravityIsaaclabV3]):
             name,
             state_id,
             policy,
+            finish_state="com.bxi.basic_actions/normal",
             finish_trigger="ballet_finished",
             end_frame_trim=330,
             end_transition={
