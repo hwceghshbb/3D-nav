@@ -311,7 +311,9 @@ class RealSenseDepthPublisher(Node):
         try:
             profile = self._pipeline.start(config, self._on_realsense_frame)
         except Exception as exc:
-            raise RuntimeError(f"RealSense start failed: {exc}") from exc
+            raise RuntimeError(
+                f"RealSense SDK depth pipeline start failed: {exc}"
+            ) from exc
         self._pipeline_started = True
         return profile
 
@@ -346,6 +348,65 @@ class RealSenseDepthPublisher(Node):
         self._temporal_filter.set_option(rs.option.holes_fill, float(self.temp_holes))
         self._hole_filter_1 = rs.hole_filling_filter(int(self.hole1))
         self._hole_filter_2 = rs.hole_filling_filter(int(self.hole2))
+
+        enabled_filters = []
+        if self.decimation > 1:
+            enabled_filters.append("DecimationFilter")
+        enabled_filters.extend(
+            (
+                "SpatialFilter",
+                "TemporalFilter",
+                f"HoleFillingFilter(mode={self.hole1})",
+                f"HoleFillingFilter(mode={self.hole2})",
+            )
+        )
+        self.get_logger().info(
+            "RealSense SDK depth filters: " + ", ".join(enabled_filters)
+        )
+        self._log_started_device(device, depth_profile)
+
+    def _log_started_device(self, device, depth_profile) -> None:
+        rs = self._rs
+
+        def device_info(info) -> str:
+            try:
+                if device.supports(info):
+                    value = str(device.get_info(info)).strip()
+                    if value:
+                        return value
+            except Exception:
+                pass
+            return "unknown"
+
+        native_module = getattr(rs, "pyrealsense2", None)
+        sdk_version = str(
+            getattr(
+                rs,
+                "__version__",
+                getattr(
+                    native_module,
+                    "__version__",
+                    getattr(
+                        rs,
+                        "__full_version__",
+                        getattr(native_module, "__full_version__", "unknown"),
+                    ),
+                ),
+            )
+        )
+        usb_type = device_info(rs.camera_info.usb_type_descriptor)
+        connection = "unknown" if usb_type == "unknown" else f"USB{usb_type}"
+        self.get_logger().info(
+            "started RealSense SDK directly: "
+            f"sdk={sdk_version}, "
+            f"camera={device_info(rs.camera_info.name)}, "
+            f"serial={device_info(rs.camera_info.serial_number)}, "
+            f"firmware={device_info(rs.camera_info.firmware_version)}, "
+            f"connection={connection}, "
+            f"uid={device_info(rs.camera_info.physical_port)}, "
+            f"depth={depth_profile.width()}x{depth_profile.height()}@"
+            f"{depth_profile.fps()} {depth_profile.format()}"
+        )
 
     def _distance_units(self, minimum: float, maximum: float) -> tuple[int, int]:
         minimum_units = min(65535, max(0, _round_positive(minimum / self._depth_scale)))
@@ -406,7 +467,7 @@ class RealSenseDepthPublisher(Node):
                         (stream_type, float(motion.x), float(motion.y), float(motion.z))
                     )
         except Exception as exc:
-            self._log_throttled("callback", f"RealSense callback failed: {exc}")
+            self._log_throttled("callback", f"RealSense SDK callback failed: {exc}")
 
     def _publish_latest(self) -> None:
         with self._frame_lock:
@@ -418,7 +479,7 @@ class RealSenseDepthPublisher(Node):
             try:
                 self._publish_frameset(frameset)
             except Exception as exc:
-                self._log_throttled("frameset", f"RealSense frame failed: {exc}")
+                self._log_throttled("frameset", f"RealSense SDK frame failed: {exc}")
         if motion_samples and self._pub_imu is not None:
             self._publish_motion(motion_samples)
 
@@ -626,7 +687,7 @@ class RealSenseDepthPublisher(Node):
     ) -> None:
         now = time.monotonic()
         key = f"projection:{name}"
-        if now - self._last_log_times.get(key, float("-inf")) < 5.0:
+        if now - self._last_log_times.get(key, float("-inf")) < 30.0:
             return
         self._last_log_times[key] = now
         fx, fy, _cx, _cy = calibration
@@ -652,7 +713,9 @@ class RealSenseDepthPublisher(Node):
         try:
             self._pipeline.stop()
         except Exception as exc:
-            self.get_logger().warning(f"RealSense stop failed: {exc}")
+            self.get_logger().warning(
+                f"RealSense SDK depth pipeline stop failed: {exc}"
+            )
 
     def destroy_node(self):
         self._stop_pipeline()
