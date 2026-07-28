@@ -27,15 +27,15 @@ if TYPE_CHECKING:
 
 
 class DepthPolicy(Protocol):
-    target_dof_pos: NDArray[np.floating]
-    kps: NDArray[np.floating]
-    kds: NDArray[np.floating]
+    target: NDArray[np.floating]
+    kp: NDArray[np.floating]
+    kd: NDArray[np.floating]
     depth_update_period: float
 
     def reset(self) -> None:
         ...
 
-    def inference_step(
+    def step(
         self,
         q: NDArray[np.floating],
         dq: NDArray[np.floating],
@@ -163,14 +163,10 @@ class NormalDepthState(
     ) -> Optional[NDArray[np.float32]]:
         encoding = msg.encoding.lower()
         if encoding in ("16uc1", "mono16"):
-            dtype = np.dtype(np.uint16).newbyteorder(
-                ">" if msg.is_bigendian else "<"
-            )
+            dtype = np.dtype(np.uint16).newbyteorder(">" if msg.is_bigendian else "<")
             scale = self.depth_uint16_scale
         elif encoding == "32fc1":
-            dtype = np.dtype(np.float32).newbyteorder(
-                ">" if msg.is_bigendian else "<"
-            )
+            dtype = np.dtype(np.float32).newbyteorder(">" if msg.is_bigendian else "<")
             scale = 1.0
         else:
             self._warn_bad_depth_once(
@@ -225,9 +221,9 @@ class NormalDepthState(
 
     def get_entry_frame(self, ctx: RobotControlContext) -> MotorFrame:
         return self._motor_frame(
-            self.policy.target_dof_pos,
-            self.policy.kps,
-            self.policy.kds,
+            self.policy.target,
+            self.policy.kp,
+            self.policy.kd,
         )
 
     def sample_running_frame(
@@ -251,7 +247,7 @@ class NormalDepthState(
             return None
 
         depth_image, depth_frame_id = depth_for_inference
-        qpos = self.policy.inference_step(
+        qpos = self.policy.step(
             ctx.current_q,
             ctx.current_dq,
             ctx.current_quat_wxyz,
@@ -260,7 +256,7 @@ class NormalDepthState(
             depth_image,
             depth_frame_id=depth_frame_id,
         )
-        frame = self._motor_frame(qpos, self.policy.kps, self.policy.kds)
+        frame = self._motor_frame(qpos, self.policy.kp, self.policy.kd)
         self._last_running_frame = frame
         return frame
 
@@ -291,9 +287,7 @@ class NormalDepthState(
             last_depth_time = self._last_depth_time
         now = time.monotonic()
         reference = (
-            self._depth_enter_time
-            if last_depth_time is None
-            else last_depth_time
+            self._depth_enter_time if last_depth_time is None else last_depth_time
         )
         return now - reference > self.depth_timeout_sec
 

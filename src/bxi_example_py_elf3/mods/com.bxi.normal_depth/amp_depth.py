@@ -2,10 +2,13 @@ from pathlib import Path
 import contextlib
 import io
 import os
+import time
 
 import numpy as np
-import onnxruntime as ort
 
+from bxi_example_py_elf3.inference.history import HistoryBuffer
+from bxi_example_py_elf3.inference.model import ModelSpec
+from bxi_example_py_elf3.inference.runtime import InferenceRuntime, default_runtime
 from bxi_example_py_elf3.mod_api.geometry import get_gravity_orientation
 
 _CV2 = None
@@ -26,53 +29,31 @@ def _get_cv2():
     return _CV2
 
 
-class CircularBuffer:
-    def __init__(self, length: int):
-        self.length = int(length)
-        self._buffer = None
-        self._num_pushes = 0
-
-    def append(self, value):
-        value = np.asarray(value, dtype=np.float32)
-        if self._buffer is None:
-            self._buffer = np.zeros(
-                (self.length,) + value.shape, dtype=np.float32
-            )
-        if self._num_pushes == 0:
-            self._buffer[:] = value
-        else:
-            self._buffer = np.roll(self._buffer, -1, axis=0)
-            self._buffer[-1] = value
-        self._num_pushes += 1
-
-    @property
-    def buffer(self):
-        return self._buffer
-
-    def reset(self):
-        if self._buffer is not None:
-            self._buffer[:] = 0.0
-        self._num_pushes = 0
-
-
 class HumanoidGaitDepthPolicyIsaaclab:
     """带深度相机输入的 ELF3 / BX 29DoF 行走策略部署类。"""
 
     def __init__(
         self,
-        model_onnx_path: str,
+        model: str | ModelSpec,
         cmd_is_joystick_ratio: bool = False,
         depth_profile: str = "default",
+        *,
+        runtime: InferenceRuntime | None = None,
+        backend: str = "auto",
     ):
         """
         Args:
-            model_onnx_path: 深度行走 ONNX 模型路径。
+            model: 模型路径或包含多个后端模型的 ModelSpec。
             cmd_is_joystick_ratio: True 时按 deploy_mujoco_bx.py 的摇杆比例命令处理；
                 False 时把 cmd_vel 当作实际速度命令，适配 bxi_sim.py 的调用方式。
             depth_profile: 深度相机预处理配置，"default" 对应旧 8 帧 WAQ-depth，
                 "origin_camera" 对应 walk_bx_waq_origin_camera_29 的单帧窄 FOV 相机。
         """
-        self.model_onnx_path = self._resolve_policy_path(model_onnx_path)
+        model_source = (
+            model if isinstance(model, ModelSpec) else self._resolve_policy_path(model)
+        )
+        self._runtime = runtime or default_runtime()
+        self._policy_name = "depth"
         self.cmd_is_joystick_ratio = cmd_is_joystick_ratio
         self.depth_profile = depth_profile
         self.debug_depth_view = os.getenv("BXI_DEPTH_DEBUG", "0").lower() in (
@@ -81,9 +62,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             "yes",
             "on",
         )
-        self.debug_depth_every = max(
-            1, int(os.getenv("BXI_DEPTH_DEBUG_EVERY", "1"))
-        )
+        self.debug_depth_every = max(1, int(os.getenv("BXI_DEPTH_DEBUG_EVERY", "1")))
         self._debug_depth_counter = 0
 
         self.num_actions = 29
@@ -131,7 +110,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
         )
         self.mujoco_to_isaac_idx = self.joint2motor_idx
 
-        self.kps = np.array(
+        self.kp = np.array(
             [
                 108.448,
                 162.672,
@@ -165,7 +144,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             ],
             dtype=np.float32,
         )
-        self.kds = np.array(
+        self.kd = np.array(
             [
                 6.904,
                 10.356,
@@ -200,7 +179,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             dtype=np.float32,
         )
 
-        self.default_dof_pos = np.array(
+        self.default_position = np.array(
             [
                 0.0,
                 0.0,
@@ -234,7 +213,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             ],
             dtype=np.float32,
         )
-        self.default_angles_policy = self.default_dof_pos[self.joint2motor_idx]
+        self.default_angles_policy = self.default_position[self.joint2motor_idx]
 
         action_scales = np.array(
             [
@@ -308,22 +287,28 @@ class HumanoidGaitDepthPolicyIsaaclab:
         self.depth_obs_indices = np.array(
             [-36, -31, -26, -21, -16, -11, -6, -1], dtype=np.int32
         )
-        self.depth_image_buffer = CircularBuffer(length=37)
+        self.depth_buffer_length = 37
         self._apply_depth_profile(depth_profile)
 
         self.qj_obs = np.zeros(self.num_actions, dtype=np.float32)
         self.dqj_obs = np.zeros(self.num_actions, dtype=np.float32)
-        self.action = np.zeros(self.num_actions, dtype=np.float32)
-        self.last_action = np.zeros(self.num_actions, dtype=np.float32)
-        self.target_dof_pos = self.default_dof_pos.copy()
+        self._single_obs = np.empty(self.num_obs, dtype=np.float32)
+        self._action = np.zeros(self.num_actions, dtype=np.float32)
+        self._previous_action = np.zeros(self.num_actions, dtype=np.float32)
+        self.target = self.default_position.copy()
+        self._target_policy = np.empty(self.num_actions, dtype=np.float32)
         self.actor_obs_buffer = np.zeros(
             self.history_length * self.num_obs, dtype=np.float32
         )
-        self.first = True
+        self._obs_history = HistoryBuffer(
+            self.history_length,
+            (self.num_obs,),
+            dtype=np.float32,
+        )
         self.counter = 0
         self.last_depth_frame_id = None
 
-        self.initialize_model(self.model_onnx_path)
+        self._initialize_model(model_source, backend)
 
     def _apply_depth_profile(self, depth_profile):
         if depth_profile in ("default", None):
@@ -347,51 +332,56 @@ class HumanoidGaitDepthPolicyIsaaclab:
         self.depth_h = 36
         self.depth_w = 36
         self.depth_obs_indices = np.array([-1], dtype=np.int32)
-        self.depth_image_buffer = CircularBuffer(length=1)
+        self.depth_buffer_length = 1
         self.depth_hidden_body_names = ("torso_link",)
         self.range_velx = np.array([0.0, 0.8], dtype=np.float32)
         self.range_vely = np.array([-0.5, 0.5], dtype=np.float32)
         self.range_velz = np.array([-1.57, 1.57], dtype=np.float32)
 
-    def initialize_model(self, onnx_path):
-        providers = (
-            [
-                "CUDAExecutionProvider",
-                "CPUExecutionProvider",
-            ]
-            if ort.get_device() == "GPU"
-            else ["CPUExecutionProvider"]
+    def _initialize_model(self, model, backend):
+        spec = (
+            model
+            if isinstance(model, ModelSpec)
+            else ModelSpec.portable_onnx(
+                model,
+                input_names=(),
+                output_names=(),
+            )
         )
-
-        options = ort.SessionOptions()
-        options.intra_op_num_threads = 4
-        options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
-
-        self.session = ort.InferenceSession(
-            onnx_path,
-            providers=providers,
-            sess_options=options,
+        self._backend = self._runtime.open_backend(
+            spec,
+            backend=backend,
         )
         self._configure_model_io()
+        self._allocate_model_buffers()
         self.reset()
         self._warmup_policy()
-        print(f"AMP depth model init finished: {onnx_path}")
-        print("#" * 72)
 
     def reset(self):
-        self.actor_obs_buffer = np.zeros(
-            self.history_length * self.num_obs, dtype=np.float32
-        )
-        self.depth_image_buffer.reset()
-        self.last_action = np.zeros(self.num_actions, dtype=np.float32)
-        self.action = np.zeros(self.num_actions, dtype=np.float32)
-        self.target_dof_pos = self.default_dof_pos.copy()
-        self.cmd = np.zeros(3, dtype=np.float32)
-        self.first = True
+        required_size = self.history_length * self.num_obs
+        if self.actor_obs_buffer.size != required_size:
+            self.actor_obs_buffer = np.empty(required_size, dtype=np.float32)
+            self._obs_history = HistoryBuffer(
+                self.history_length,
+                (self.num_obs,),
+                dtype=np.float32,
+            )
+        self.actor_obs_buffer.fill(0.0)
+        self._obs_history.clear()
+        self._depth_history.clear()
+        self._depth_storage.fill(0.0)
+        if hasattr(self, "_selected_depth"):
+            self._selected_depth.fill(0.0)
+        if hasattr(self, "_single_input_buffer"):
+            self._single_input_buffer.fill(0.0)
+        self._previous_action.fill(0.0)
+        self._action.fill(0.0)
+        np.copyto(self.target, self.default_position)
+        self.cmd.fill(0.0)
         self.counter = 0
         self.last_depth_frame_id = None
 
-    def inference_step(
+    def step(
         self,
         q,
         dq,
@@ -401,35 +391,44 @@ class HumanoidGaitDepthPolicyIsaaclab:
         depth_image=None,
         depth_frame_id=None,
     ):
-        obs = self.compute_observation(q, dq, quat, omega, cmd_vel)
-        ort_outputs = self._run_policy(
-            obs, depth_image, depth_frame_id=depth_frame_id
-        )
-        action_out = np.squeeze(ort_outputs[self.action_output_index]).astype(
-            np.float32
-        )
-
-        self.action = np.clip(
+        monitor = self._runtime.options.monitor_enabled
+        if monitor:
+            started = time.perf_counter_ns()
+        obs = self._build_observation(q, dq, quat, omega, cmd_vel)
+        self._prepare_policy_inputs(obs, depth_image, depth_frame_id=depth_frame_id)
+        if monitor:
+            input_done = time.perf_counter_ns()
+        ort_outputs = self._backend.run(self._policy_inputs)
+        if monitor:
+            backend_done = time.perf_counter_ns()
+        action_out = np.asarray(ort_outputs[self.action_output_name]).reshape(-1)
+        np.clip(
             action_out[: self.num_actions],
             -self.clip_action_limit,
             self.clip_action_limit,
+            out=self._action,
         )
-        self.last_action = self.action.copy()
+        np.copyto(self._previous_action, self._action)
 
-        target_policy_order = (
-            self.default_angles_policy
-            + self.action * self.action_scales_policy
+        np.multiply(
+            self._action,
+            self.action_scales_policy,
+            out=self._target_policy,
         )
-        target_mujoco_order = np.zeros_like(
-            target_policy_order, dtype=np.float32
-        )
-        for i, motor_idx in enumerate(self.joint2motor_idx):
-            target_mujoco_order[motor_idx] = target_policy_order[i]
+        self._target_policy += self.default_angles_policy
+        self.target[self.joint2motor_idx] = self._target_policy
+        if monitor:
+            done = time.perf_counter_ns()
+            self._runtime.monitor.record(
+                self._policy_name,
+                input_done - started,
+                backend_done - input_done,
+                done - backend_done,
+                done - started,
+            )
+        return self.target
 
-        self.target_dof_pos = target_mujoco_order
-        return self.target_dof_pos
-
-    def compute_observation(self, qj, dqj, quat, omega, cmd_vel):
+    def _build_observation(self, qj, dqj, quat, omega, cmd_vel):
         self._update_command(cmd_vel)
 
         vel_norm = np.linalg.norm(self.cmd)
@@ -443,60 +442,42 @@ class HumanoidGaitDepthPolicyIsaaclab:
 
         qj = np.asarray(qj, dtype=np.float32)[: self.num_actions]
         dqj = np.asarray(dqj, dtype=np.float32)[: self.num_actions]
-        self.qj_obs[:] = qj[self.joint2motor_idx]
-        self.dqj_obs[:] = dqj[self.joint2motor_idx]
+        np.take(qj, self.joint2motor_idx, out=self.qj_obs)
+        np.take(dqj, self.joint2motor_idx, out=self.dqj_obs)
 
-        qj_obs = (
-            self.qj_obs - self.default_angles_policy
-        ) * self.dof_pos_scale
-        dqj_obs = self.dqj_obs * self.dof_vel_scale
-        ang_vel = np.asarray(omega, dtype=np.float32) * self.ang_vel_scale
-        gravity_orientation = get_gravity_orientation(quat).astype(np.float32)
-        cmd = self.cmd * self.cmd_scale
+        obs = self._single_obs
+        np.multiply(omega, self.ang_vel_scale, out=obs[0:3])
+        obs[3:6] = get_gravity_orientation(quat)
+        np.multiply(self.cmd, self.cmd_scale, out=obs[6:9])
+        np.subtract(self.qj_obs, self.default_angles_policy, out=obs[9:38])
+        obs[9:38] *= self.dof_pos_scale
+        np.multiply(self.dqj_obs, self.dof_vel_scale, out=obs[38:67])
+        obs[67:96] = self._previous_action
 
-        obs = np.concatenate(
-            [
-                ang_vel.copy(),
-                gravity_orientation.copy(),
-                cmd.copy(),
-                qj_obs.copy(),
-                dqj_obs.copy(),
-                self.last_action.copy(),
-            ]
-        ).astype(np.float32)
-
-        if self.num_obs == obs.shape[0] + 2:
+        if self.num_obs == 98:
             phase = (self.counter * self.control_dt) % 1.0
-            obs = np.concatenate(
-                [
-                    obs,
-                    np.array(
-                        [np.sin(2 * np.pi * phase), np.cos(2 * np.pi * phase)],
-                        dtype=np.float32,
-                    ),
-                ]
-            )
+            obs[96] = np.sin(2 * np.pi * phase)
+            obs[97] = np.cos(2 * np.pi * phase)
         if obs.shape[0] != self.num_obs:
             raise ValueError(
                 f"AMP depth obs dim mismatch: got {obs.shape[0]}, "
                 f"expected {self.num_obs}"
             )
-        return np.clip(obs, -100, 100).astype(np.float32)
+        np.clip(obs, -100, 100, out=obs)
+        return obs
 
-    def preprocess_depth_image(self, depth_image):
+    def _preprocess_depth(self, depth_image):
         if depth_image is None:
-            return np.zeros((self.depth_h, self.depth_w), dtype=np.float32)
+            return self._zero_depth
 
         depth_image = np.asarray(depth_image, dtype=np.float32)
         if depth_image.shape == (self.depth_h, self.depth_w):
-            return depth_image.copy()
+            return depth_image
 
-        raw_depth_image = depth_image.copy()
+        raw_depth_image = depth_image
         cropped_depth_image = None
         if self.depth_rotate_transpose:
-            depth_image = np.flip(
-                np.transpose(raw_depth_image, (1, 0)), axis=0
-            )
+            depth_image = np.flip(np.transpose(raw_depth_image, (1, 0)), axis=0)
         else:
             depth_image = raw_depth_image
         if self.crop_region is not None:
@@ -506,20 +487,17 @@ class HumanoidGaitDepthPolicyIsaaclab:
             start_h = left
             start_w = top
             depth_image = depth_image[
-                start_w:start_w + target_w, start_h:start_h + target_h
+                start_w : start_w + target_w, start_h : start_h + target_h
             ]
-        debug_raw_depth_image = depth_image.copy()
-        if (
-            self.depth_crop_rows is not None
-            and not self.depth_crop_rows_after_noise
-        ):
+        debug_raw_depth_image = depth_image
+        if self.depth_crop_rows is not None and not self.depth_crop_rows_after_noise:
             start, end = self.depth_crop_rows
             depth_image = depth_image[start:end, :]
         if self.depth_crop_rows is not None:
             start, end = self.depth_crop_rows
-            cropped_depth_image = depth_image[start:end, :].copy()
+            cropped_depth_image = depth_image[start:end, :]
         else:
-            cropped_depth_image = depth_image.copy()
+            cropped_depth_image = depth_image
 
         cv2_module = _get_cv2()
         if self.gaussian_kernel_size is not None and cv2_module is not None:
@@ -535,10 +513,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             depth_image = (depth_image - d_min) / max(d_max - d_min, 1e-6)
             out_min, out_max = self.depth_output_range
             depth_image = depth_image * (out_max - out_min) + out_min
-        if (
-            self.depth_crop_rows is not None
-            and self.depth_crop_rows_after_noise
-        ):
+        if self.depth_crop_rows is not None and self.depth_crop_rows_after_noise:
             start, end = self.depth_crop_rows
             depth_image = depth_image[start:end, :]
 
@@ -551,7 +526,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             self._show_depth_debug(
                 debug_raw_depth_image, cropped_depth_image, depth_image
             )
-        return depth_image.copy().astype(np.float32)
+        return np.asarray(depth_image, dtype=np.float32)
 
     def _show_depth_debug(self, raw_depth, cropped_depth, policy_depth):
         cv2_module = _get_cv2()
@@ -591,9 +566,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
                 y0 = int(start * scale)
                 y1 = int(end * scale) - 1
                 x1 = view.shape[1] - 1
-                cv2_module.rectangle(
-                    view, (0, y0), (x1, y1), (255, 255, 255), 2
-                )
+                cv2_module.rectangle(view, (0, y0), (x1, y1), (255, 255, 255), 2)
             panel = np.zeros(
                 (view.shape[0] + label_h, view.shape[1], 3), dtype=np.uint8
             )
@@ -612,9 +585,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
             return panel
 
         panels = [
-            make_panel(
-                "raw before crop", raw_depth, self.depth_range, draw_crop=True
-            ),
+            make_panel("raw before crop", raw_depth, self.depth_range, draw_crop=True),
             make_panel("cropped", cropped_depth, self.depth_range),
             make_panel("policy input", policy_depth, self.depth_output_range),
         ]
@@ -634,71 +605,55 @@ class HumanoidGaitDepthPolicyIsaaclab:
         cv2_module.imshow(f"{self.camera_name}: depth debug", canvas)
         cv2_module.waitKey(1)
 
-    def _run_policy(self, obs, depth_image, depth_frame_id=None):
+    def _prepare_policy_inputs(self, obs, depth_image, depth_frame_id=None):
         if self.model_input_mode == "history_only":
-            obs_buffer = self._update_obs_history(obs)
-            return self.session.run(None, {self.input_name: obs_buffer})
+            self._update_obs_history(obs)
+            return
 
         depth_buffer = self._get_depth_image_downsample_obs(
             depth_image,
             depth_frame_id=depth_frame_id,
         )
         if self.model_input_mode == "single_obs_depth":
-            obs_buffer = np.concatenate(
-                [obs.reshape(1, -1), depth_buffer.reshape(1, -1)], axis=1
-            ).astype(np.float32)
-            return self.session.run(None, {self.input_name: obs_buffer})
+            flat = self._single_input_buffer[0]
+            flat[: self.num_obs] = obs
+            flat[self.num_obs :] = depth_buffer.reshape(-1)
+            return
 
-        obs_buffer = self._update_obs_history(obs)
-        if self.depth_input_rank == 3:
-            depth_buffer = (
-                depth_buffer[-1]
-                .reshape(1, self.depth_h, self.depth_w)
-                .astype(np.float32)
-            )
-        else:
-            depth_buffer = depth_buffer.reshape(
-                1, -1, self.depth_h, self.depth_w
-            ).astype(np.float32)
-        return self.session.run(
-            None,
-            {
-                self.obs_input_name: obs_buffer,
-                self.depth_input_name: depth_buffer,
-            },
-        )
+        self._update_obs_history(obs)
 
     def _update_obs_history(self, obs):
-        if self.first:
-            self.actor_obs_buffer[:] = np.tile(obs, self.history_length)
-            self.first = False
+        if not self._obs_history.initialized:
+            self._obs_history.fill(obs)
         else:
-            self.actor_obs_buffer = np.concatenate(
-                (self.actor_obs_buffer[self.num_obs:], obs),
-                axis=0,
-                dtype=np.float32,
-            )
-        return self.actor_obs_buffer.reshape(1, -1).astype(np.float32)
+            self._obs_history.append(obs)
+        self._obs_history.write_into(self.actor_obs_buffer)
+        return self.actor_obs_buffer.reshape(1, -1)
 
-    def _get_depth_image_downsample_obs(
-        self, depth_image, depth_frame_id=None
-    ):
+    def _get_depth_image_downsample_obs(self, depth_image, depth_frame_id=None):
         if depth_frame_id is not None:
             if (
                 self.last_depth_frame_id is not None
                 and depth_frame_id == self.last_depth_frame_id
-                and self.depth_image_buffer.buffer is not None
+                and self._depth_history.initialized
             ):
-                return self.depth_image_buffer.buffer[
-                    self.depth_obs_indices, ...
-                ]
+                return self._selected_depth
 
             self.last_depth_frame_id = depth_frame_id
 
-        self.depth_image_buffer.append(
-            self.preprocess_depth_image(depth_image)
+        depth = self._preprocess_depth(depth_image)
+        if self._depth_history.initialized:
+            self._depth_history.append(depth)
+        else:
+            self._depth_history.fill(depth)
+        self._depth_history.write_into(self._depth_storage)
+        np.take(
+            self._depth_storage,
+            self.depth_obs_indices,
+            axis=0,
+            out=self._selected_depth,
         )
-        return self.depth_image_buffer.buffer[self.depth_obs_indices, ...]
+        return self._selected_depth
 
     def _update_command(self, cmd_vel):
         cmd_vel = np.asarray(cmd_vel, dtype=np.float32)
@@ -719,63 +674,55 @@ class HumanoidGaitDepthPolicyIsaaclab:
                 self.range_velz[1],
             )
         else:
-            self.cmd[0] = np.clip(
-                cmd_vel[0], self.range_velx[0], self.range_velx[1]
-            )
-            self.cmd[1] = np.clip(
-                cmd_vel[1], self.range_vely[0], self.range_vely[1]
-            )
-            self.cmd[2] = np.clip(
-                cmd_vel[2], self.range_velz[0], self.range_velz[1]
-            )
+            self.cmd[0] = np.clip(cmd_vel[0], self.range_velx[0], self.range_velx[1])
+            self.cmd[1] = np.clip(cmd_vel[1], self.range_vely[0], self.range_vely[1])
+            self.cmd[2] = np.clip(cmd_vel[2], self.range_velz[0], self.range_velz[1])
 
     def _configure_model_io(self):
-        inputs = self.session.get_inputs()
-        outputs = self.session.get_outputs()
-        self.input_name = inputs[0].name
-        self.output_names = [out.name for out in outputs]
-        self.action_output_index = 0
-        for i, out in enumerate(outputs):
-            out_name = out.name.lower()
-            if any(
-                token in out_name for token in ("action", "actions", "policy")
-            ):
-                self.action_output_index = i
+        inputs = self._backend.input_names
+        outputs = self._backend.output_names
+        self.input_name = inputs[0]
+        action_output_index = 0
+        for i, output_name in enumerate(outputs):
+            out_name = output_name.lower()
+            if any(token in out_name for token in ("action", "actions", "policy")):
+                action_output_index = i
+        self.action_output_name = outputs[action_output_index]
 
         self.model_input_mode = "history_only"
         self.obs_input_name = self.input_name
         self.depth_input_name = None
         if len(inputs) == 1:
-            flat_dim = self._shape_dim(inputs[0].shape[1])
+            flat_dim = self._shape_dim(self._backend.input_shape(inputs[0])[1])
             if flat_dim == self.history_length * self.num_obs:
                 return
             self.model_input_mode = "single_obs_depth"
             self.history_length = 1
-            self.actor_proprio_dim = (
+            actor_proprio_dim = (
                 flat_dim - self.depth_history_len * self.depth_h * self.depth_w
             )
-            if self.actor_proprio_dim != self.num_obs:
+            if actor_proprio_dim != self.num_obs:
                 raise ValueError(
                     "Single-input ONNX proprio dim mismatch: "
-                    f"got {self.actor_proprio_dim}, "
+                    f"got {actor_proprio_dim}, "
                     f"expected {self.num_obs}"
                 )
             return
 
         self.model_input_mode = "multi_input_history"
-        self.obs_input_name = inputs[0].name
-        self.depth_input_name = inputs[1].name
+        self.obs_input_name = inputs[0]
+        self.depth_input_name = inputs[1]
         self.history_length = int(
-            self._shape_dim(inputs[0].shape[1]) / self.num_obs
+            self._shape_dim(self._backend.input_shape(inputs[0])[1]) / self.num_obs
         )
-        depth_shape = inputs[1].shape
+        depth_shape = self._backend.input_shape(inputs[1])
         self.depth_input_rank = len(depth_shape)
         if self.depth_input_rank == 3:
             self.depth_history_len = 1
             self.depth_h = self._shape_dim(depth_shape[1])
             self.depth_w = self._shape_dim(depth_shape[2])
             self.depth_obs_indices = np.array([-1], dtype=np.int32)
-            self.depth_image_buffer = CircularBuffer(length=1)
+            self.depth_buffer_length = 1
         elif self.depth_input_rank == 4:
             self.depth_history_len = self._shape_dim(depth_shape[1])
             self.depth_h = self._shape_dim(depth_shape[2])
@@ -786,57 +733,68 @@ class HumanoidGaitDepthPolicyIsaaclab:
                 f"shape={depth_shape}"
             )
 
+    def _allocate_model_buffers(self):
+        required_obs_size = self.history_length * self.num_obs
+        if self.actor_obs_buffer.size != required_obs_size:
+            self.actor_obs_buffer = np.empty(required_obs_size, dtype=np.float32)
+            self._obs_history = HistoryBuffer(
+                self.history_length,
+                (self.num_obs,),
+                dtype=np.float32,
+            )
+        self._selected_depth = np.empty(
+            (self.depth_obs_indices.size, self.depth_h, self.depth_w),
+            dtype=np.float32,
+        )
+        self._selected_depth.fill(0.0)
+        self._depth_history = HistoryBuffer(
+            self.depth_buffer_length,
+            (self.depth_h, self.depth_w),
+            dtype=np.float32,
+        )
+        self._depth_storage = np.zeros(
+            (self.depth_buffer_length, self.depth_h, self.depth_w),
+            dtype=np.float32,
+        )
+        self._zero_depth = np.zeros((self.depth_h, self.depth_w), dtype=np.float32)
+        if self.model_input_mode == "history_only":
+            self._policy_inputs = {
+                self.input_name: self.actor_obs_buffer.reshape(1, -1),
+            }
+            return
+        if self.model_input_mode == "single_obs_depth":
+            self._single_input_buffer = np.empty(
+                (1, self.num_obs + self._selected_depth.size),
+                dtype=np.float32,
+            )
+            self._single_input_buffer.fill(0.0)
+            self._policy_inputs = {self.input_name: self._single_input_buffer}
+            return
+        depth_view = (
+            self._selected_depth[-1].reshape(1, self.depth_h, self.depth_w)
+            if self.depth_input_rank == 3
+            else self._selected_depth.reshape(
+                1, self.depth_obs_indices.size, self.depth_h, self.depth_w
+            )
+        )
+        self._policy_inputs = {
+            self.obs_input_name: self.actor_obs_buffer.reshape(1, -1),
+            self.depth_input_name: depth_view,
+        }
+
     def _warmup_policy(self):
         for _ in range(5):
-            if self.model_input_mode == "history_only":
-                obs_tensor = np.zeros(
-                    (1, self.history_length * self.num_obs), dtype=np.float32
-                )
-                self.session.run(None, {self.input_name: obs_tensor})
-            elif self.model_input_mode == "single_obs_depth":
-                obs_tensor = np.zeros(
-                    (
-                        1,
-                        self.num_obs
-                        + self.depth_history_len * self.depth_h * self.depth_w,
-                    ),
-                    dtype=np.float32,
-                )
-                self.session.run(None, {self.input_name: obs_tensor})
-            else:
-                obs_tensor = np.zeros(
-                    (1, self.history_length * self.num_obs), dtype=np.float32
-                )
-                if self.depth_input_rank == 3:
-                    depth_tensor = np.zeros(
-                        (1, self.depth_h, self.depth_w), dtype=np.float32
-                    )
-                else:
-                    depth_tensor = np.zeros(
-                        (
-                            1,
-                            self.depth_history_len,
-                            self.depth_h,
-                            self.depth_w,
-                        ),
-                        dtype=np.float32,
-                    )
-                self.session.run(
-                    None,
-                    {
-                        self.obs_input_name: obs_tensor,
-                        self.depth_input_name: depth_tensor,
-                    },
-                )
+            self._backend.run(self._policy_inputs)
+
+    def close(self):
+        self._backend.close()
 
     @staticmethod
     def _shape_dim(dim):
         if isinstance(dim, int):
             return dim
         if isinstance(dim, str):
-            raise ValueError(
-                f"Dynamic ONNX dimension is unsupported here: {dim}"
-            )
+            raise ValueError(f"Dynamic ONNX dimension is unsupported here: {dim}")
         return int(dim)
 
     @staticmethod
@@ -849,9 +807,7 @@ class HumanoidGaitDepthPolicyIsaaclab:
         candidates = [
             Path.cwd() / expanded,
             project_root / expanded,
-            project_root
-            / "deploy_bx/deploy/policy/loco29_depth/model"
-            / expanded,
+            project_root / "deploy_bx/deploy/policy/loco29_depth/model" / expanded,
         ]
         for candidate in candidates:
             if candidate.exists():
@@ -863,10 +819,17 @@ class HumanoidGaitOriginCameraPolicyIsaaclab(HumanoidGaitDepthPolicyIsaaclab):
     """walk_bx_waq_origin_camera_29 单帧 origin-camera 部署类。"""
 
     def __init__(
-        self, model_onnx_path: str, cmd_is_joystick_ratio: bool = False
+        self,
+        model: str | ModelSpec,
+        cmd_is_joystick_ratio: bool = False,
+        *,
+        runtime: InferenceRuntime | None = None,
+        backend: str = "auto",
     ):
         super().__init__(
-            model_onnx_path,
+            model,
             cmd_is_joystick_ratio=cmd_is_joystick_ratio,
             depth_profile="origin_camera",
+            runtime=runtime,
+            backend=backend,
         )
