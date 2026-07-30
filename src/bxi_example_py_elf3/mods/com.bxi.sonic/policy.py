@@ -27,6 +27,7 @@ from bxi_example_py_elf3.framework.inference import (
     default_runtime,
 )
 from bxi_example_py_elf3.framework.joints import JointParameterSet
+from bxi_example_py_elf3.framework.mod_api import LoggerLike
 from bxi_example_py_elf3.policies.joints import ELF3_POLICY_JOINTS
 
 from .pico.runtime_config import SMPL_REF_HOST, SMPL_REF_PORT, SMPL_REF_TOPIC
@@ -313,11 +314,15 @@ class SonicTeleopPolicy(JointPolicy):
         self.policy_active = False
         self.last_status = "not_started"
         self._reported_status: Optional[str] = None
+        self._logger: LoggerLike | None = None
 
         self._load_stream_reference()
         self._init_backend(backend)
         self._init_zmq()
         self.publish_output(self.target_dof_pos, self.kps, self.kds)
+
+    def bind_logger(self, logger: LoggerLike) -> None:
+        self._logger = logger
 
     def _validate_runtime_config(self) -> None:
         if not math.isfinite(self.yaw_bias_rad):
@@ -726,7 +731,9 @@ class SonicTeleopPolicy(JointPolicy):
         else:
             self.last_status = "idle_reference"
         if self.last_status != self._reported_status:
-            print(f"[SONIC] reference status: {self.last_status}", flush=True)
+            if self._logger is None:
+                raise RuntimeError("SONIC policy logger is not bound")
+            self._logger.info(f"reference status: {self.last_status}")
             self._reported_status = self.last_status
         return self.target_dof_pos
 

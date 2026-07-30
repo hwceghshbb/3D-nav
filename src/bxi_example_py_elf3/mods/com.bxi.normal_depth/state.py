@@ -93,7 +93,6 @@ class NormalDepthState(
         self._bad_depth_warned = False
         self._depth_timeout_warned = False
         self._depth_subscription = None
-        self._logger = None
 
     @property
     def policy(self) -> DepthPolicy:
@@ -101,7 +100,6 @@ class NormalDepthState(
 
     def on_bind(self, ctx: RobotControlContext) -> None:
         node = ctx.ros_node
-        self._logger = node.get_logger()
         qos = QoSProfile(
             depth=1,
             durability=qos_profile_sensor_data.durability,
@@ -113,7 +111,7 @@ class NormalDepthState(
             self.depth_image_callback,
             qos,
         )
-        self._logger.info(
+        self.logger.info(
             f"depth state mode={self.mode}, topic={self.depth_image_topic}, "
             f"post-rotation shape={self.expected_depth_shape}"
         )
@@ -202,10 +200,7 @@ class NormalDepthState(
     def _warn_bad_depth_once(self, message: str) -> None:
         if self._bad_depth_warned:
             return
-        if self._logger is not None:
-            self._logger.warning(message)
-        else:
-            print(message)
+        self.logger.warning(message)
         self._bad_depth_warned = True
 
     def on_prepare(
@@ -237,10 +232,9 @@ class NormalDepthState(
         depth_for_inference = self._get_depth_for_inference()
         if depth_for_inference is None:
             if not self._missing_depth_warned:
-                if self._logger is not None:
-                    self._logger.warning(
-                        f"waiting for depth image: {self.depth_image_topic}"
-                    )
+                self.logger.warning(
+                    f"waiting for depth image: {self.depth_image_topic}"
+                )
                 self._missing_depth_warned = True
             return None
 
@@ -295,11 +289,10 @@ class NormalDepthState(
 
         if self._is_depth_timed_out():
             if not self._depth_timeout_warned:
-                if self._logger is not None:
-                    self._logger.warning(
-                        "depth image timeout, switching to normal: "
-                        f"{self.depth_image_topic}"
-                    )
+                self.logger.warning(
+                    "depth image timeout, switching to normal: "
+                    f"{self.depth_image_topic}"
+                )
                 self._depth_timeout_warned = True
             ctx.request_state("com.bxi.basic_actions/normal", trigger="no_depth")
             return

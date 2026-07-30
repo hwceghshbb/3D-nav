@@ -21,12 +21,15 @@ from bxi_example_py_elf3.framework.mod_api.transition import (
 from .gripper import BxiMotor, JointControl
 
 if TYPE_CHECKING:
-    from bxi_example_py_elf3.framework.mod_api import RobotControlContext
+    from bxi_example_py_elf3.framework.mod_api import LoggerLike, RobotControlContext
 
 
 class SonicPolicy(Protocol):
     output: PolicyOutput
     last_status: str
+
+    def bind_logger(self, logger: LoggerLike) -> None:
+        ...
 
     def reset(self, frame: InferenceFrame | None = None) -> None:
         ...
@@ -105,7 +108,6 @@ class SonicTeleopState(
         self._gripper_kd = float(gripper_kd)
         self._validate_config()
         self._last_running_frame: Optional[MotorFrame] = None
-        self._logger = None
 
         self._gripper_session_active = False
         self._gripper_armed = False
@@ -124,7 +126,7 @@ class SonicTeleopState(
         return self._policy.get()
 
     def on_bind(self, ctx: RobotControlContext) -> None:
-        self._logger = ctx.ros_node.get_logger()
+        self.policy.bind_logger(self.logger)
         if not self.hardware_gripper:
             return
         packet_type = getattr(
@@ -133,7 +135,7 @@ class SonicTeleopState(
             getattr(bxi_msg, "CanfdPacket", None),
         )
         if packet_type is None:
-            self._logger.error("SONIC夹爪不可用：缺少communication.msg.CANFDPacket")
+            self.logger.error("SONIC夹爪不可用：缺少communication.msg.CANFDPacket")
             return
         qos = QoSProfile(depth=1)
         self._gripper_subscriptions = [
@@ -225,7 +227,7 @@ class SonicTeleopState(
 
     def on_enter(self, ctx: RobotControlContext) -> None:
         mode = "SONIC遥操（夹爪）" if self.hardware_gripper else "SONIC遥操"
-        ctx.get_logger().info(
+        self.logger.info(
             f"{mode}已启动；PICO同时按住A+B+X+Y请求校准，再按A+X切入实时POSE"
         )
 
@@ -311,13 +313,13 @@ class SonicTeleopState(
             )
         self._gripper_armed = True
         self._gripper_wait_reason = None
-        self._logger.info("SONIC夹爪已解锁")
+        self.logger.info("SONIC夹爪已解锁")
         return True
 
     def _log_gripper_wait(self, reason: str, message: str) -> None:
         if self._gripper_wait_reason != reason:
             self._gripper_wait_reason = reason
-            self._logger.warning(message)
+            self.logger.warning(message)
 
     def _publish_gripper(self, bus: int, trigger: float) -> None:
         command = JointControl(
@@ -353,7 +355,7 @@ class SonicTeleopState(
         }
         newly_stale = stale - self._stale_sides
         if newly_stale:
-            self._logger.warning(
+            self.logger.warning(
                 "SONIC夹爪trigger断流：" + ",".join(sorted(newly_stale)) + "；保持最后位置"
             )
         self._stale_sides = stale
