@@ -124,6 +124,17 @@ class NormalDepthState(
         if subscription is not None:
             ctx.ros_node.destroy_subscription(subscription)
 
+    def is_available(self, ctx: RobotControlContext) -> bool:
+        """Allow entry only while the continuously subscribed depth feed is fresh."""
+        with self._depth_lock:
+            depth_rotated = self._depth_rotated
+            last_depth_time = self._last_depth_time
+        return (
+            depth_rotated is not None
+            and last_depth_time is not None
+            and time.monotonic() - last_depth_time <= self.depth_timeout_sec
+        )
+
     def depth_image_callback(self, msg: Image) -> None:
         depth_meters = self._depth_msg_to_meters(msg)
         if depth_meters is None:

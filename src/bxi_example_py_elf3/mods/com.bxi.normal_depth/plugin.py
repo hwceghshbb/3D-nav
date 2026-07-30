@@ -6,7 +6,7 @@ from bxi_example_py_elf3.framework.mod_api import (
     StateBuildContext,
 )
 
-from bxi_example_py_elf3.policies import (
+from .depth import (
     HumanoidGaitDepthPolicyIsaaclab,
     HumanoidGaitOriginCameraPolicyIsaaclab,
 )

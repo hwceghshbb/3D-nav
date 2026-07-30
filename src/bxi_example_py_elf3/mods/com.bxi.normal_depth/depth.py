@@ -17,7 +17,7 @@ from bxi_example_py_elf3.framework.inference import (
     default_runtime,
 )
 from bxi_example_py_elf3.framework.mod_api.geometry import get_gravity_orientation
-from .joints import ELF3_ISAAC_PARAMETERS
+from bxi_example_py_elf3.policies.joints import ELF3_ISAAC_PARAMETERS
 
 _CV2 = None
 _CV2_IMPORT_TRIED = False
@@ -196,6 +196,7 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         )
         self._configure_model_io()
         self._allocate_model_buffers()
+        self._warmup_depth_preprocessing()
         self._clear_state()
         self._warmup_policy()
 
@@ -672,6 +673,21 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             self.obs_input_name: self.actor_obs_buffer.reshape(1, -1),
             self.depth_input_name: depth_view,
         }
+
+    def _warmup_depth_preprocessing(self) -> None:
+        """Move lazy OpenCV initialization out of the first control cycle."""
+        d_min, d_max = self.depth_range
+        sample = np.full(
+            (self.height, self.width),
+            (d_min + d_max) * 0.5,
+            dtype=np.float32,
+        )
+        debug_depth_view = self.debug_depth_view
+        self.debug_depth_view = False
+        try:
+            self._preprocess_depth(sample)
+        finally:
+            self.debug_depth_view = debug_depth_view
 
     def _warmup_policy(self):
         for _ in range(5):
