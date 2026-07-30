@@ -63,7 +63,7 @@ class NormalDepthState(
         depth_uint16_scale: float,
         depth_timeout_sec: float,
     ) -> None:
-        super().__init__(name, state_id)
+        super().__init__(name, state_id, resources=(policy,))
         if mode not in self._EXPECTED_SHAPES:
             raise ValueError(f"unsupported depth mode: {mode}")
         if not depth_image_topic:

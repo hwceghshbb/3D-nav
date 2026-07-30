@@ -54,9 +54,7 @@ def _build_state(
 
 
 def create_mod(context: ModLoadContext) -> ModDefinition:
-    # Loading at Mod startup keeps model initialization out of the control-state
-    # transition. The backend itself still follows RKNN -> OpenVINO -> ORT.
-    context.register_resource(SONIC_POLICY, _load_policy, loading="eager")
+    context.register_resource(SONIC_POLICY, _load_policy, policy="on_demand")
     policy = context.resource(SONIC_POLICY)
     return ModDefinition(
         state_factories={

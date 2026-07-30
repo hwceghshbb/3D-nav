@@ -5,7 +5,11 @@ import math
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from bxi_example_py_elf3.framework.mod_api import RobotControlState, StateBehavior
+from bxi_example_py_elf3.framework.mod_api import (
+    ResourceHandle,
+    RobotControlState,
+    StateBehavior,
+)
 from bxi_example_py_elf3.framework.mod_api.transition import (
     EntryFrameProvider,
     MotorFrame,
@@ -89,59 +93,34 @@ class AnyMotionState(
         name: str,
         state_id: int,
         *,
+        policy: ResourceHandle[RgmtExternalReferencePolicy],
         model_path: Path,
         motion_path: Path,
         params: AnyMotionParams,
     ) -> None:
-        super().__init__(name, state_id)
+        super().__init__(name, state_id, resources=(policy,))
+        self._policy = policy
         self.model_path = model_path
         self.motion_path = motion_path
         self.params = params
         self.playing = True
-        self._policy: RgmtExternalReferencePolicy | None = None
 
     @property
     def policy(self) -> RgmtExternalReferencePolicy:
-        if self._policy is None:
-            raise RuntimeError(
-                f"state '{self.name}' policy is not prepared; enter through the state machine"
-            )
-        return self._policy
+        return self._policy.get()
 
     def is_available(self, ctx: RobotControlContext) -> bool:
         return self.model_path.is_file() and self.motion_path.is_file()
-
-    def _load_policy(self) -> RgmtExternalReferencePolicy:
-        policy = self._policy
-        if policy is not None:
-            return policy
-        policy = RgmtExternalReferencePolicy(
-            str(self.motion_path),
-            str(self.model_path),
-            start_frame=self.params.start_frame,
-            reference_yaw_mode=self.params.reference_yaw_mode,
-            backend=self.params.backend,
-        )
-        if self.params.end_frame >= 0:
-            policy.configure_range(end_frame=self.params.end_frame)
-        self._policy = policy
-        return policy
 
     def on_prepare(
         self,
         ctx: RobotControlContext,
         from_state: StateBehavior[RobotControlContext],
     ) -> None:
-        ctx.preheat_model(self._load_policy())
+        ctx.preheat_model(self.policy)
 
     def on_enter(self, ctx: RobotControlContext) -> None:
         self.playing = True
-
-    def on_unbind(self, ctx: RobotControlContext) -> None:
-        policy = self._policy
-        self._policy = None
-        if policy is not None:
-            policy.close()
 
     def get_entry_frame(self, ctx: RobotControlContext) -> MotorFrame:
         return self._motor_frame_from_target(ctx, self.policy.output.joints)

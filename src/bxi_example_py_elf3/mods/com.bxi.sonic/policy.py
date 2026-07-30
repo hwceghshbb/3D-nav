@@ -11,7 +11,9 @@ from __future__ import annotations
 import json
 import math
 import time
+from collections import deque
 from dataclasses import dataclass
+from threading import Event, Thread
 from typing import Any, Mapping, Optional
 
 import numpy as np
@@ -368,36 +370,87 @@ class SonicTeleopPolicy(JointPolicy):
         self._backend.warmup(self._inputs, self._runtime.options.warmup_runs)
 
     def _init_zmq(self) -> None:
-        self.zmq_context = None
-        self.zmq_socket = None
+        self._reference_messages: deque[bytes] = deque(maxlen=1)
+        self._zmq_stop = Event()
+        self._zmq_ready = Event()
+        self._zmq_error: BaseException | None = None
+        self._zmq_thread: Thread | None = None
         if not self.use_smpl_ref_zmq:
             return
-        self.zmq_context = zmq.Context()
-        self.zmq_socket = self.zmq_context.socket(zmq.SUB)
-        self.zmq_socket.setsockopt(zmq.RCVHWM, 1)
-        self.zmq_socket.setsockopt_string(zmq.SUBSCRIBE, self.smpl_ref_zmq_topic)
-        self.zmq_socket.connect(
-            f"tcp://{self.smpl_ref_zmq_host}:{self.smpl_ref_zmq_port}"
+        thread = Thread(
+            target=self._run_reference_receiver,
+            name="sonic-reference",
+            daemon=False,
         )
-        self.zmq_poller = zmq.Poller()
-        self.zmq_poller.register(self.zmq_socket, zmq.POLLIN)
+        self._zmq_thread = thread
+        thread.start()
+        self._zmq_ready.wait()
+        if self._zmq_error is not None:
+            raise RuntimeError(
+                f"cannot initialize SONIC reference receiver: {self._zmq_error}"
+            ) from self._zmq_error
+
+    def _run_reference_receiver(self) -> None:
+        context = None
+        socket = None
+        poller = None
+        try:
+            context = zmq.Context()
+            socket = context.socket(zmq.SUB)
+            socket.setsockopt(zmq.RCVHWM, 1)
+            socket.setsockopt(zmq.LINGER, 0)
+            socket.setsockopt_string(zmq.SUBSCRIBE, self.smpl_ref_zmq_topic)
+            socket.connect(
+                f"tcp://{self.smpl_ref_zmq_host}:{self.smpl_ref_zmq_port}"
+            )
+            poller = zmq.Poller()
+            poller.register(socket, zmq.POLLIN)
+        except BaseException as exc:
+            self._zmq_error = exc
+        finally:
+            self._zmq_ready.set()
+        if self._zmq_error is not None:
+            if socket is not None:
+                socket.close(linger=0)
+            if context is not None:
+                context.term()
+            return
+
+        try:
+            while not self._zmq_stop.is_set():
+                events = dict(poller.poll(timeout=50))
+                if socket not in events:
+                    continue
+                latest = None
+                while True:
+                    try:
+                        latest = socket.recv(flags=zmq.NOBLOCK)
+                    except zmq.Again:
+                        break
+                if latest is not None:
+                    self._reference_messages.append(latest)
+        except zmq.ZMQError as exc:
+            if not self._zmq_stop.is_set():
+                self._zmq_error = exc
+        finally:
+            try:
+                poller.unregister(socket)
+            except (KeyError, zmq.ZMQError):
+                pass
+            socket.close(linger=0)
+            context.term()
 
     def close(self) -> None:
         """Release ZMQ resources owned by this policy instance."""
-        socket = getattr(self, "zmq_socket", None)
-        poller = getattr(self, "zmq_poller", None)
-        context = getattr(self, "zmq_context", None)
-        if socket is not None:
-            if poller is not None:
-                try:
-                    poller.unregister(socket)
-                except (KeyError, zmq.ZMQError):
-                    pass
-            socket.close(linger=0)
-            self.zmq_socket = None
-        if context is not None:
-            context.term()
-            self.zmq_context = None
+        stop = getattr(self, "_zmq_stop", None)
+        if stop is not None:
+            stop.set()
+        thread = getattr(self, "_zmq_thread", None)
+        if thread is not None:
+            thread.join(timeout=1.0)
+            if thread.is_alive():
+                raise RuntimeError("SONIC reference receiver did not stop")
+            self._zmq_thread = None
         backend = getattr(self, "_backend", None)
         if backend is not None:
             backend.close()
@@ -476,39 +529,32 @@ class SonicTeleopPolicy(JointPolicy):
 
     def _drain_reference_socket(self) -> None:
         """Discard packets queued before a SONIC reset/re-entry."""
-        if self.zmq_socket is None:
-            return
-        while True:
-            try:
-                self.zmq_socket.recv(flags=zmq.NOBLOCK)
-            except zmq.Again:
-                break
+        self._reference_messages.clear()
 
     def poll_reference(self) -> Optional[SmplReferenceFrame]:
-        if self.zmq_socket is None:
+        if not self.use_smpl_ref_zmq:
             return None
-        while True:
-            events = dict(self.zmq_poller.poll(timeout=0))
-            if self.zmq_socket not in events:
-                break
-            try:
-                msg = self.zmq_socket.recv(flags=zmq.NOBLOCK)
-                fields = _decode_packed_message(msg, self.smpl_ref_zmq_topic)
-                if not fields:
-                    continue
-                frame = self._frame_from_fields(fields)
-            except (
-                IndexError,
-                KeyError,
-                TypeError,
-                UnicodeDecodeError,
-                ValueError,
-                json.JSONDecodeError,
-                zmq.Again,
-            ):
-                continue
-            self.latest_live_ref = frame
-            self.latest_live_ref_time = time.monotonic()
+        try:
+            msg = self._reference_messages.pop()
+            self._reference_messages.clear()
+        except IndexError:
+            return self.latest_live_ref
+        try:
+            fields = _decode_packed_message(msg, self.smpl_ref_zmq_topic)
+            if not fields:
+                return self.latest_live_ref
+            frame = self._frame_from_fields(fields)
+        except (
+            IndexError,
+            KeyError,
+            TypeError,
+            UnicodeDecodeError,
+            ValueError,
+            json.JSONDecodeError,
+        ):
+            return self.latest_live_ref
+        self.latest_live_ref = frame
+        self.latest_live_ref_time = time.monotonic()
         return self.latest_live_ref
 
     def _frame_from_fields(self, fields: dict[str, np.ndarray]) -> SmplReferenceFrame:

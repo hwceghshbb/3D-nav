@@ -87,7 +87,7 @@ class SonicTeleopState(
         gripper_kp: float = 20.0,
         gripper_kd: float = 1.0,
     ) -> None:
-        super().__init__(name, state_id)
+        super().__init__(name, state_id, resources=(policy,))
         if gripper_input_timeout_s <= 0.0:
             raise ValueError("gripper_input_timeout_s must be positive")
         self._policy = policy
@@ -108,6 +108,7 @@ class SonicTeleopState(
         self._gripper_kd = float(gripper_kd)
         self._validate_config()
         self._last_running_frame: Optional[MotorFrame] = None
+        self._policy_logger_bound = False
 
         self._gripper_session_active = False
         self._gripper_armed = False
@@ -126,7 +127,6 @@ class SonicTeleopState(
         return self._policy.get()
 
     def on_bind(self, ctx: RobotControlContext) -> None:
-        self.policy.bind_logger(self.logger)
         if not self.hardware_gripper:
             return
         packet_type = getattr(
@@ -189,6 +189,8 @@ class SonicTeleopState(
     def is_available(self, ctx: RobotControlContext) -> bool:
         if not self._gripper_available:
             return False
+        if self._policy.status != "ready":
+            return True
         return not self.require_live_reference or self.policy.has_fresh_live_reference(
             self.live_reference_timeout_s
         )
@@ -198,6 +200,9 @@ class SonicTeleopState(
         ctx: RobotControlContext,
         from_state: StateBehavior[RobotControlContext],
     ) -> None:
+        if not self._policy_logger_bound:
+            self.policy.bind_logger(self.logger)
+            self._policy_logger_bound = True
         self.policy.configure_runtime(
             yaw_bias_rad=self.yaw_bias_rad,
             live_ref_timeout_s=self.live_reference_timeout_s,
