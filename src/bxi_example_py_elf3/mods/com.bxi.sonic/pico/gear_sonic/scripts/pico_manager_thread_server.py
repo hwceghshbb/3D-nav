@@ -16,20 +16,11 @@ import time
 
 import msgpack
 import numpy as np
-from scipy.spatial.transform import Rotation as R, Rotation as sRot
-import torch
+from scipy.spatial.transform import Rotation as sRot
 import zmq
 
+from gear_sonic.trl.utils.numpy_smpl import compute_from_body_poses
 from gear_sonic.utils.teleop.zmq.zmq_poller import ZMQPoller
-from gear_sonic.trl.utils.rotation_conversion import decompose_rotation_aa
-from gear_sonic.trl.utils.torch_transform import (
-    angle_axis_to_quaternion,
-    compute_human_joints,
-    quat_apply,
-    quat_inv,
-    quaternion_to_angle_axis,
-    quaternion_to_rotation_matrix,
-)
 
 try:
     from gear_sonic.utils.teleop.zmq.zmq_planner_sender import (
@@ -48,13 +39,6 @@ except ImportError:
     def pack_pose_message(*args, **kwargs) -> bytes:
         raise RuntimeError("pack_pose_message unavailable")
 
-
-try:
-    from gear_sonic.isaac_utils.rotations import remove_smpl_base_rot, smpl_root_ytoz_up
-except ImportError:
-    print("Warning: gear_sonic.isaac_utils.rotations not available.")
-    remove_smpl_base_rot = None
-    smpl_root_ytoz_up = None
 
 try:
     import xrobotoolkit_sdk as xrt
@@ -574,48 +558,6 @@ def run_vr3pt_realtime_visualizer(update_hz: int = 10):
         visualizer.close()
 
 
-def process_smpl_joints(body_pose, global_orient, transl):
-    """Process SMPL parameters to compute local joints.
-
-    Args:
-        body_pose: Body pose tensor, shape (T, 69)
-        global_orient: Global orientation tensor, shape (T, 3)
-        transl: Translation tensor, shape (T, 3)
-
-    Returns:
-        Dictionary with processed joints and parameters
-    """
-    # Convert global_orient to quaternion and apply transformations (robust if utils missing)
-    global_orient_quat = angle_axis_to_quaternion(global_orient)
-    if smpl_root_ytoz_up is not None:
-        global_orient_quat = smpl_root_ytoz_up(global_orient_quat)
-    global_orient_new = quaternion_to_angle_axis(global_orient_quat)
-
-    # Compute joints and vertices using SMPL model (single forward pass)
-    joints = compute_human_joints(
-        body_pose=body_pose[..., :63],
-        global_orient=global_orient_new,
-    )  # (*, 24, 3)
-
-    # Apply base rotation removal and compute local joints
-    if remove_smpl_base_rot is not None:
-        global_orient_quat = remove_smpl_base_rot(global_orient_quat, w_last=False)
-
-    global_orient_quat_inv = quat_inv(global_orient_quat).unsqueeze(1).repeat(1, joints.shape[1], 1)
-    smpl_joints_local = quat_apply(global_orient_quat_inv, joints)
-    global_orient_mat = quaternion_to_rotation_matrix(global_orient_quat)
-    global_orient_6d = global_orient_mat[..., :2].reshape(1, 6)
-
-    return {
-        "smpl_pose": body_pose,
-        "joints": joints,
-        "smpl_joints_local": smpl_joints_local,
-        "global_orient_quat": global_orient_quat,
-        "global_orient_6d": global_orient_6d,
-        "adjusted_transl": transl,
-    }
-
-
 def generate_finger_data(hand: str, trigger: float, grip: float) -> np.ndarray:
     """
     Generate finger position data from Pico controller button states.
@@ -683,44 +625,6 @@ class YawAccumulator:
             self.yaw_angle_rad += self.dyaw
             self.heading = [np.cos(self.yaw_angle_rad), np.sin(self.yaw_angle_rad), 0.0]
         return self.heading
-
-
-def compute_from_body_poses(parent_indices: list, device, body_poses_np: np.ndarray):
-    """
-    Compute local joints and body orientation from provided body_poses_np.
-    """
-    positions = body_poses_np[:, :3]
-    global_quats = body_poses_np[:, [6, 3, 4, 5]]
-
-    # Convert to local rotations
-    global_rots = sRot.from_quat(global_quats, scalar_first=True)
-    global_rots = global_rots * sRot.from_euler("y", 180, degrees=True)
-
-    local_rots = []
-    for i in range(24):
-        if parent_indices[i] == -1:
-            local_rots.append(global_rots[i])
-        else:
-            local_rot = global_rots[parent_indices[i]].inv() * global_rots[i]
-            local_rots.append(local_rot)
-
-    pose_aa = np.array([rot.as_rotvec() for rot in local_rots])
-
-    body_pose = torch.from_numpy(pose_aa[1:].flatten()).float().to(device).unsqueeze(0)
-    global_orient = torch.from_numpy(pose_aa[0]).float().to(device).unsqueeze(0)
-    transl = torch.from_numpy(positions[0]).float().to(device).unsqueeze(0)
-
-    return process_smpl_joints(body_pose, global_orient, transl)
-
-
-# def compute_latest_frame(parent_indices: list, device) -> tuple[np.ndarray, np.ndarray]:
-#     """
-#     Pull body data from XRoboToolkit, compute local SMPL joints and body orientation.
-#     Returns (smpl_joints_local_np [24,3], global_orient_quat_np [4,])
-#     """
-#     body_poses = xrt.get_body_joints_pose()
-#     body_poses_np = np.array(body_poses)
-#     return compute_from_body_poses(parent_indices, device, body_poses_np)
 
 
 def init_hand_ik_solvers():
@@ -862,6 +766,33 @@ def _quat_lerp_normalized(q0: np.ndarray, q1: np.ndarray, alpha: float) -> np.nd
     return q
 
 
+def _decompose_rotation_axis_angle(
+    rotation_axis_angle: np.ndarray, twist_axis: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
+    """Split rotations into twist and swing quaternions in wxyz order."""
+    rotations = np.asarray(rotation_axis_angle, dtype=np.float64)
+    axis = np.asarray(twist_axis, dtype=np.float64)
+    axis /= np.linalg.norm(axis)
+    quaternions = sRot.from_rotvec(rotations).as_quat(scalar_first=True)
+    twist = np.concatenate(
+        (
+            quaternions[:, :1],
+            (quaternions[:, 1:] @ axis)[:, None] * axis,
+        ),
+        axis=1,
+    )
+    norms = np.linalg.norm(twist, axis=1, keepdims=True)
+    degenerate = norms[:, 0] < 1e-12
+    twist[~degenerate] /= norms[~degenerate]
+    twist[degenerate] = np.array([1.0, 0.0, 0.0, 0.0])
+    twist_inverse = twist * np.array([1.0, -1.0, -1.0, -1.0])
+    swing = (
+        sRot.from_quat(twist_inverse, scalar_first=True)
+        * sRot.from_quat(quaternions, scalar_first=True)
+    ).as_quat(scalar_first=True)
+    return twist, swing
+
+
 def _interp_pose_axis_angle(
     prev_pose: np.ndarray, curr_pose: np.ndarray, alpha: float
 ) -> np.ndarray:
@@ -979,7 +910,6 @@ def _pose_stream_common(
     buffer_size: int,
     num_frames_to_send: int,
     target_fps: int,
-    use_cuda: bool,
     record_dir: str,
     record_format: str,
     stop_event: threading.Event | None = None,
@@ -1016,7 +946,6 @@ def _pose_stream_common(
         three_point=three_point,
         num_frames_to_send=num_frames_to_send,
         target_fps=target_fps,
-        use_cuda=use_cuda,
         record_dir=record_dir,
         record_format=record_format,
         log_prefix=log_prefix,
@@ -1343,7 +1272,6 @@ class PoseStreamer:
         three_point: ThreePointPose,
         num_frames_to_send: int,
         target_fps: int,
-        use_cuda: bool,
         record_dir: str,
         record_format: str,
         log_prefix: str = "PoseLoop",
@@ -1358,10 +1286,6 @@ class PoseStreamer:
         # Injected dependencies
         self.reader = reader
         self.three_point = three_point
-
-        self.device = (
-            torch.device("cuda") if use_cuda and torch.cuda.is_available() else torch.device("cpu")
-        )
 
         if record_dir:
             os.makedirs(record_dir, exist_ok=True)
@@ -1453,9 +1377,7 @@ class PoseStreamer:
             time.sleep(0.005)
             return
 
-        latest_data = compute_from_body_poses(
-            self.parent_indices, self.device, sample["body_poses_np"]
-        )
+        latest_data = compute_from_body_poses(self.parent_indices, sample["body_poses_np"])
         (left_menu_button, left_trigger, right_trigger, left_grip, right_grip) = (
             get_controller_inputs()
         )
@@ -1482,15 +1404,9 @@ class PoseStreamer:
             right_trigger,
             right_grip,
         )
-        smpl_pose_np = (
-            latest_data["smpl_pose"].detach().cpu().numpy()[:, :63].reshape(-1, 21, 3)[0]
-        ).astype(np.float32)
-        smpl_joints_np = (
-            latest_data["smpl_joints_local"].detach().cpu().numpy()[0].astype(np.float32)
-        )
-        body_quat_np = (
-            latest_data["global_orient_quat"].detach().cpu().numpy()[0].astype(np.float32)
-        )
+        smpl_pose_np = latest_data["smpl_pose"][:, :63].reshape(-1, 21, 3)[0]
+        smpl_joints_np = latest_data["smpl_joints_local"][0]
+        body_quat_np = latest_data["global_orient_quat"][0]
         curr_stamp_ns = int(sample.get("timestamp_ns", 0))
         step_ns = int(1e9 / max(1, self.target_fps))
         if self.prev_stamp_ns is None:
@@ -1544,25 +1460,25 @@ class PoseStreamer:
         smpl_r_wrist_aa = body_pose[:, SMPL_R_WRIST_IDX]
 
         elf3_l_elbow_axis = np.array([0, 1, 0])
-        _elf3_l_elbow_q_twist, elf3_l_elbow_q_swing = decompose_rotation_aa(
+        _elf3_l_elbow_q_twist, elf3_l_elbow_q_swing = _decompose_rotation_axis_angle(
             smpl_l_elbow_aa, elf3_l_elbow_axis
         )
 
         elf3_r_elbow_axis = np.array([0, 1, 0])
-        _elf3_r_elbow_q_twist, elf3_r_elbow_q_swing = decompose_rotation_aa(
+        _elf3_r_elbow_q_twist, elf3_r_elbow_q_swing = _decompose_rotation_axis_angle(
             smpl_r_elbow_aa, elf3_r_elbow_axis
         )
 
         # Move elbow roll/yaw into wrist while preserving wrist pitch from SMPL
-        l_elbow_swing_euler = R.from_quat(elf3_l_elbow_q_swing[:, [1, 2, 3, 0]]).as_euler(
-            "XYZ", degrees=False
-        )
-        r_elbow_swing_euler = R.from_quat(elf3_r_elbow_q_swing[:, [1, 2, 3, 0]]).as_euler(
-            "XYZ", degrees=False
-        )
+        l_elbow_swing_euler = sRot.from_quat(
+            elf3_l_elbow_q_swing[:, [1, 2, 3, 0]]
+        ).as_euler("XYZ", degrees=False)
+        r_elbow_swing_euler = sRot.from_quat(
+            elf3_r_elbow_q_swing[:, [1, 2, 3, 0]]
+        ).as_euler("XYZ", degrees=False)
 
-        l_wrist_euler = R.from_rotvec(smpl_l_wrist_aa).as_euler("XYZ", degrees=False)
-        r_wrist_euler = R.from_rotvec(smpl_r_wrist_aa).as_euler("XYZ", degrees=False)
+        l_wrist_euler = sRot.from_rotvec(smpl_l_wrist_aa).as_euler("XYZ", degrees=False)
+        r_wrist_euler = sRot.from_rotvec(smpl_r_wrist_aa).as_euler("XYZ", degrees=False)
 
         elf3_l_wrist_x = l_elbow_swing_euler[:, 0] + l_wrist_euler[:, 0]
         elf3_l_wrist_y = l_wrist_euler[:, 1]
@@ -1697,7 +1613,6 @@ def run_pico(
     port: int = 5556,
     num_frames_to_send: int = 5,
     target_fps: int = 50,
-    use_cuda: bool = False,
     record_dir: str = "",
     record_format: str = "npz",
     enable_vis_vr3pt: bool = False,
@@ -1743,7 +1658,6 @@ def run_pico(
             buffer_size=buffer_size,
             num_frames_to_send=num_frames_to_send,
             target_fps=target_fps,
-            use_cuda=use_cuda,
             record_dir=record_dir,
             record_format=record_format,
             stop_event=stop_event,
@@ -2031,7 +1945,6 @@ def run_pico_manager(
     buffer_size: int = 15,
     num_frames_to_send: int = 5,
     target_fps: int = 50,
-    use_cuda: bool = False,
     record_dir: str = "",
     record_format: str = "npz",
     zmq_feedback_host: str = "localhost",
@@ -2097,7 +2010,6 @@ def run_pico_manager(
         three_point=three_point,
         num_frames_to_send=num_frames_to_send,
         target_fps=target_fps,
-        use_cuda=use_cuda,
         record_dir=record_dir,
         record_format=record_format,
         log_prefix="PoseLoop",
@@ -2396,9 +2308,6 @@ if __name__ == "__main__":
     )
     parser.add_argument("--target_fps", type=int, default=50, help="Target loop FPS (default: 50)")
     parser.add_argument(
-        "--cuda", action="store_true", help="Use CUDA for tensors and model (default: CPU)"
-    )
-    parser.add_argument(
         "--record_dir",
         type=str,
         default="",
@@ -2439,7 +2348,6 @@ if __name__ == "__main__":
                 buffer_size=args.buffer_size,
                 num_frames_to_send=args.num_frames_to_send,
                 target_fps=args.target_fps,
-                use_cuda=args.cuda,
                 record_dir=args.record_dir,
                 record_format=args.record_format,
                 zmq_feedback_host=args.zmq_feedback_host,
@@ -2457,7 +2365,6 @@ if __name__ == "__main__":
                 port=args.port,
                 num_frames_to_send=args.num_frames_to_send,
                 target_fps=args.target_fps,
-                use_cuda=args.cuda,
                 record_dir=args.record_dir,
                 record_format=args.record_format,
                 enable_vis_vr3pt=False,

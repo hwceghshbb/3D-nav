@@ -24,7 +24,6 @@ MANAGER_IMPORTS = (
     "msgpack",
     "numpy",
     "scipy",
-    "torch",
     "zmq",
     "pinocchio",
     "xrobotoolkit_sdk",
@@ -59,7 +58,6 @@ def _vendor_root() -> Path:
 
 
 def _validate_manager_runtime() -> None:
-    import torch
     import xrobotoolkit_sdk as xrt
 
     missing = tuple(
@@ -79,14 +77,6 @@ def _validate_manager_runtime() -> None:
             "RoboticsServiceProcess is not executable: "
             f"{service_executable}; set SONIC_XRT_SERVICE_DIR to its directory"
         )
-    use_cuda = os.environ.get("SONIC_PICO_USE_CUDA", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-    if use_cuda and not torch.cuda.is_available():
-        raise RuntimeError("SONIC_PICO_USE_CUDA is enabled but torch CUDA is unavailable")
 
 
 def main() -> int:
@@ -104,12 +94,6 @@ def main() -> int:
     sys.argv[0] = str(manager_script)
     if not any(arg == "--port" or arg.startswith("--port=") for arg in sys.argv[1:]):
         sys.argv.extend(("--port", str(PICO_PORT)))
-    if (
-        os.environ.get("SONIC_PICO_USE_CUDA", "").strip().lower()
-        in ("1", "true", "yes", "on")
-        and "--cuda" not in sys.argv[1:]
-    ):
-        sys.argv.append("--cuda")
     runpy.run_path(str(manager_script), run_name="__main__")
     return 0
 

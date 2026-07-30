@@ -124,7 +124,6 @@ numpy>=1.26,<2
 scipy>=1.10
 pyzmq>=25
 msgpack>=1.0
-torch>=2.1
 pin>=2.7       # Python import 名称为 pinocchio
 ```
 
@@ -145,11 +144,79 @@ bridge 始终使用宿主 ROS Python，不使用 `SONIC_PICO_PYTHON`，因此厂
 安装 `rclpy`、`std_msgs` 或继承宿主 site-packages。这条边界避免 ROS 环境与 Conda/
 厂商二进制扩展相互污染。
 
-默认使用 CPU。只有目标机器有可用 CUDA 环境时才设置：
+manager 的人体姿态变换和 SMPL 前向运动学使用 NumPy/SciPy，不运行 Torch 模型，
+因此不需要安装 PyTorch 或 CUDA。
 
-```bash
-export SONIC_PICO_USE_CUDA=1
-```
+### NumPy 与原 Torch 路径性能对比
+
+2026-07-31 使用修改前 Git 基线 `3afd15b223ce4089cc4ed801a660c33ef73d85ab`
+中的原始 Torch 实现，与当前 NumPy/SciPy 实现进行了同机对比。测试环境为 Intel
+Core i5-12600KF、Python 3.10.12、NumPy 1.26.4、SciPy 1.15.3、
+Torch 2.13.0+cu130，`torch.cuda.is_available()` 为 `False`。
+
+持续测试使用同一批 256 组固定随机种子的 PICO 24 关节姿态，预热 300 帧后分别执行
+5 轮、每轮 2000 帧，共计 10000 帧。端到端数据包含原路径实际执行的
+`detach().cpu().numpy()`；核心计算数据不包含结果取出。Torch 固定为单线程以避免小
+矩阵任务受线程调度开销影响；使用原默认 10 线程时结果基本相同。
+
+| 指标 | 原 Torch | NumPy/SciPy | 加速比 |
+| --- | ---: | ---: | ---: |
+| 独立进程导入均值（8 次） | 1225.8 ms | 174.1 ms | 7.04x |
+| 清空静态数据缓存后的首次计算 | 37.83 ms | 1.36 ms | 27.8x |
+| 核心计算 mean | 1289.2 us | 411.1 us | 3.14x |
+| 端到端 mean | 1292.2 us | 408.3 us | 3.16x |
+| 端到端 p50 | 1282.3 us | 404.7 us | 3.17x |
+| 端到端 p95 | 1352.6 us | 428.3 us | 3.16x |
+| 端到端 p99 | 1425.8 us | 440.8 us | 3.23x |
+
+128 组随机姿态的数值回归中，关节坐标最大绝对误差约为 `4.5e-6`，四元数及 6D
+朝向最大绝对误差约为 `4.2e-7`。当前 NumPy 路径约占 50 Hz 控制周期 20 ms 预算的
+2%。这些结果用于确认本次迁移没有以性能或精度为代价；不同 CPU、SciPy 版本和系统
+负载下的绝对延迟会变化。上述首次对比运行在没有暴露 GPU 设备的隔离环境中，因此只
+代表 CPU 路径。
+
+#### Torch CPU、Torch CUDA 与 NumPy 三方对比
+
+随后在同一台宿主机的 RTX 3060 12 GB 上使用 Conda `pytorch` 环境重新进行三方测试。
+该环境为 Python 3.10.12、Torch 2.11.0.dev20260210+cu128、CUDA 12.8、
+NumPy 2.2.6 和 SciPy 1.15.3。三条路径使用相同输入帧和同一个 Python 进程；预热 500
+帧后各测量 5000 帧，并完整重复两次。Torch CPU 固定为单线程。
+
+Torch CUDA 使用两种计时边界：
+
+- `CUDA 端到端` 与原 manager 行为一致，包含 SciPy CPU 预处理、NumPy 到 CUDA Tensor
+  上传、CUDA 计算、结果下载及 `detach().cpu().numpy()`，每帧前后同步 CUDA。
+- `CUDA 输入常驻` 预先把姿态输入放在 GPU，使用 CUDA Event 测量原 Torch 几何函数；
+  不包含姿态预处理、输入上传和结果下载，但保留原实现内部的运算及静态关节数据处理。
+
+以下为第一轮完整结果；第二轮各路径的持续均值见后文范围。
+
+| 路径 | mean | p50 | p95 | p99 |
+| --- | ---: | ---: | ---: | ---: |
+| 原 Torch CPU 端到端 | 1327.7 us | 1327.6 us | 1386.6 us | 1458.5 us |
+| 原 Torch CUDA 端到端 | 2742.7 us | 2703.9 us | 3073.1 us | 3326.7 us |
+| 原 Torch CUDA 输入常驻 | 2245.1 us | 2221.4 us | 2496.6 us | 2697.2 us |
+| 当前 NumPy/SciPy CPU 端到端 | 398.9 us | 394.9 us | 415.6 us | 458.1 us |
+
+两轮持续测试的 mean 范围为：
+
+| 路径 | mean 范围 | 相对当前 NumPy 路径 |
+| --- | ---: | ---: |
+| 原 Torch CPU 端到端 | 1263.5–1327.7 us | 慢 3.07–3.33x |
+| 原 Torch CUDA 端到端 | 2655.6–2742.7 us | 慢 6.46–6.88x |
+| 原 Torch CUDA 输入常驻 | 2245.1–2248.1 us | 慢 5.46–5.63x |
+| 当前 NumPy/SciPy CPU 端到端 | 398.9–411.0 us | 基准 |
+
+模块已经导入、静态数据缓存清空后的首次计算波动更大：原 Torch CPU 为
+36.6–89.8 ms，原 Torch CUDA 为 291.1–413.3 ms，NumPy/SciPy CPU 为
+1.43–2.02 ms。Torch CUDA 与 Torch CPU 的最大绝对误差为 `2.38e-7`，当前 NumPy
+与 Torch CPU 的最大绝对误差为 `2.74e-6`。
+
+原 Torch CUDA 在此任务中更慢，主要因为输入 batch 为 1、FK 只有 55 个关节，却会
+发起大量细粒度 CUDA 运算；kernel 调度和同步成本高于实际计算量。即使输入预先常驻
+GPU，原 eager Torch 路径仍约为 2.25 ms。这里比较的是 SONIC 原始实现，不能外推为
+所有 CUDA 实现都更慢；批处理、算子融合、`torch.compile` 或专用 CUDA kernel 可能
+得到不同结果，但都需要重新实现和独立验证。
 
 如果选择安装到 Miniconda base，而不是独立 venv：
 
@@ -182,7 +249,6 @@ SONIC 对外只保留部署环境相关变量：
 | --- | --- | --- |
 | `SONIC_PICO_PYTHON` | 自动探测 | 可选；强制 manager 使用指定解释器 |
 | `SONIC_XRT_SERVICE_DIR` | `/opt/apps/roboticsservice` | RoboticsService 根目录 |
-| `SONIC_PICO_USE_CUDA` | `0` | 启用 manager 的 CUDA tensor 路径 |
 
 算法行为和夹爪硬件配置不使用环境变量，统一写在 `mod.yaml` 的 state `params`。
 这样启动进程、状态可用性检查和 policy 使用的是同一份显式配置，启动 shell 中残留的
@@ -253,7 +319,7 @@ export LD_LIBRARY_PATH="$SONIC_XRT_SERVICE_DIR/SDK/x64:$SONIC_XRT_SERVICE_DIR:$S
   'import xrobotoolkit_sdk as xrt; print("xrobotoolkit_sdk OK", xrt)'
 
 "${SONIC_PICO_PYTHON:-python3}" -c \
-  'import numpy, scipy, zmq, msgpack, torch, pinocchio; print("PICO Python dependencies OK")'
+  'import numpy, scipy, zmq, msgpack, pinocchio; print("PICO Python dependencies OK")'
 ```
 
 运行 SONIC 后可检查服务和端口：
