@@ -64,19 +64,22 @@ DisparityTransform 是 SDK 对部分深度格式必需的基础转换，会始�
 
 ## RKNN INT8 校准数据
 
-深度模型需要用真实运行分布做 INT8 校准。设置以下环境变量后启动控制器：
+深度模型需要用真实运行分布做 INT8 校准。采集能力位于外部通用工具中，深度策略
+自身不包含录制线程、环境变量或控制热路径分支。使用工具启动控制器：
 
 ```bash
-BXI_RKNN_CALIBRATION_DIR=/tmp/bxi_rknn_calibration \
-BXI_RKNN_CALIBRATION_EVERY=5 \
-BXI_RKNN_CALIBRATION_MAX=500 \
-ros2 launch bxi_example_py_elf3 example_demo_hw.launch.py
+python3 tools/benchmark/collect_calibration.py \
+  --output /tmp/bxi_rknn_calibration \
+  --every 5 \
+  --max-samples 500 \
+  --skip-first 10 \
+  -- ros2 launch bxi_example_py_elf3 example_demo_hw.launch.py
 ```
 
-采集发生在深度预处理和 observation history 组装之后，因此写入的是模型实际
-收到的 `obs_history` 与 `depth_data`，不是原始相机图。控制线程只复制内存，后台
-线程负责 `.npy` 和 `dataset.txt` 写盘。默认 `origin_camera` 模式采集 `dagger2`；
-要采集 `normal_depth`，将状态的 `mode` 改为 `depth_walk` 后另跑一次。
+工具包装所有通过框架 `InferenceRuntime` 打开的后端，因此不局限于深度策略。
+它在策略预处理和 observation history 组装之后记录传给 `backend.run()` 的最终输入。
+默认 `origin_camera` 模式采集 `dagger2`；要采集 `normal_depth`，将状态的 `mode`
+改为 `depth_walk` 后另跑一次。
 
 完整校验和转换命令见 `tools/benchmark/README.md` 的
 “Capture and build a representative INT8 model”。

@@ -1,13 +1,10 @@
 from pathlib import Path
 import contextlib
 import io
-import os
-import time
 
 import numpy as np
 
 from bxi_example_py_elf3.framework.inference import (
-    CalibrationDatasetRecorder,
     HistoryBuffer,
     InferenceFrame,
     InferenceRuntime,
@@ -71,15 +68,6 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         self._policy_name = "depth"
         self.cmd_is_joystick_ratio = cmd_is_joystick_ratio
         self.depth_profile = depth_profile
-        self.debug_depth_view = os.getenv("BXI_DEPTH_DEBUG", "0").lower() in (
-            "1",
-            "true",
-            "yes",
-            "on",
-        )
-        self.debug_depth_every = max(1, int(os.getenv("BXI_DEPTH_DEBUG_EVERY", "1")))
-        self._debug_depth_counter = 0
-
         self.num_actions = self.joint_contract.action.dof_num
         self.num_obs = 96
         self.history_length = 10
@@ -145,7 +133,6 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         self.counter = 0
         self.last_depth_frame_id = None
         self._depth_previewed = False
-        self._calibration_recorder = None
 
         self._initialize_model(model_source, backend)
         self.publish_output(
@@ -198,9 +185,6 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         )
         self._configure_model_io()
         self._allocate_model_buffers()
-        self._calibration_recorder = CalibrationDatasetRecorder.from_environment(
-            self._model_name(model)
-        )
         self._warmup_depth_preprocessing()
         self._clear_state()
         self._warmup_policy()
@@ -251,9 +235,6 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         cmd_vel = frame.command
         if cmd_vel is None:
             raise ValueError("HumanoidGaitDepthPolicyIsaaclab requires frame.command")
-        monitor = self._runtime.options.monitor_enabled
-        if monitor:
-            started = time.perf_counter_ns()
         obs = self._build_observation(
             joints.position,
             joints.velocity,
@@ -268,13 +249,7 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             depth_frame_id=frame.depth_frame_id,
             advance=advance,
         )
-        if advance and self._calibration_recorder is not None:
-            self._calibration_recorder.capture(self._policy_inputs)
-        if monitor:
-            input_done = time.perf_counter_ns()
         ort_outputs = self._backend.run(self._policy_inputs)
-        if monitor:
-            backend_done = time.perf_counter_ns()
         action_out = np.asarray(ort_outputs[self.action_output_name]).reshape(-1)
         np.clip(
             action_out[: self.num_actions],
@@ -291,15 +266,6 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             out=self._target,
         )
         self._target += self._parameters.default_position
-        if monitor:
-            done = time.perf_counter_ns()
-            self._runtime.monitor.record(
-                self._policy_name,
-                input_done - started,
-                backend_done - input_done,
-                done - backend_done,
-                done - started,
-            )
         return self.output
 
     def _build_observation(self, qj, dqj, quat, omega, cmd_vel, *, advance: bool):
@@ -347,12 +313,8 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         if depth_image.shape == (self.depth_h, self.depth_w):
             return depth_image
 
-        raw_depth_image = depth_image
-        cropped_depth_image = None
         if self.depth_rotate_transpose:
-            depth_image = np.flip(np.transpose(raw_depth_image, (1, 0)), axis=0)
-        else:
-            depth_image = raw_depth_image
+            depth_image = np.flip(np.transpose(depth_image, (1, 0)), axis=0)
         if self.crop_region is not None:
             top, _bottom, left, _right = self.crop_region
             target_h = self.depth_w
@@ -362,15 +324,9 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             depth_image = depth_image[
                 start_w : start_w + target_w, start_h : start_h + target_h
             ]
-        debug_raw_depth_image = depth_image
         if self.depth_crop_rows is not None and not self.depth_crop_rows_after_noise:
             start, end = self.depth_crop_rows
             depth_image = depth_image[start:end, :]
-        if self.depth_crop_rows is not None:
-            start, end = self.depth_crop_rows
-            cropped_depth_image = depth_image[start:end, :]
-        else:
-            cropped_depth_image = depth_image
 
         cv2_module = _get_cv2()
         if self.gaussian_kernel_size is not None and cv2_module is not None:
@@ -395,88 +351,7 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
                 f"AMP depth image shape mismatch: got {depth_image.shape}, "
                 f"expected {(self.depth_h, self.depth_w)}"
             )
-        if self.debug_depth_view:
-            self._show_depth_debug(
-                debug_raw_depth_image, cropped_depth_image, depth_image
-            )
         return np.asarray(depth_image, dtype=np.float32)
-
-    def _show_depth_debug(self, raw_depth, cropped_depth, policy_depth):
-        cv2_module = _get_cv2()
-        if cv2_module is None:
-            return
-        self._debug_depth_counter += 1
-        if self._debug_depth_counter % self.debug_depth_every != 0:
-            return
-
-        def to_u8(image, depth_range=None):
-            image = np.asarray(image, dtype=np.float32)
-            finite = np.isfinite(image)
-            if not finite.any():
-                return np.zeros(image.shape, dtype=np.uint8)
-            image = np.where(finite, image, np.nanmax(image[finite]))
-            if depth_range is None:
-                v_min = float(np.nanmin(image))
-                v_max = float(np.nanmax(image))
-            else:
-                v_min, v_max = depth_range
-            image = np.clip(image, v_min, v_max)
-            image = (image - v_min) / max(v_max - v_min, 1e-6)
-            return (image * 255).astype(np.uint8)
-
-        def make_panel(title, image, value_range, draw_crop=False):
-            scale = 8
-            label_h = 28
-            u8 = to_u8(image, value_range)
-            color = cv2_module.applyColorMap(u8, cv2_module.COLORMAP_TURBO)
-            view = cv2_module.resize(
-                color,
-                (color.shape[1] * scale, color.shape[0] * scale),
-                interpolation=cv2_module.INTER_NEAREST,
-            )
-            if draw_crop and self.depth_crop_rows is not None:
-                start, end = self.depth_crop_rows
-                y0 = int(start * scale)
-                y1 = int(end * scale) - 1
-                x1 = view.shape[1] - 1
-                cv2_module.rectangle(view, (0, y0), (x1, y1), (255, 255, 255), 2)
-            panel = np.zeros(
-                (view.shape[0] + label_h, view.shape[1], 3), dtype=np.uint8
-            )
-            panel[:label_h, :] = (35, 35, 35)
-            panel[label_h:, :] = view
-            cv2_module.putText(
-                panel,
-                title,
-                (8, 20),
-                cv2_module.FONT_HERSHEY_SIMPLEX,
-                0.55,
-                (255, 255, 255),
-                1,
-                cv2_module.LINE_AA,
-            )
-            return panel
-
-        panels = [
-            make_panel("raw before crop", raw_depth, self.depth_range, draw_crop=True),
-            make_panel("cropped", cropped_depth, self.depth_range),
-            make_panel("policy input", policy_depth, self.depth_output_range),
-        ]
-        max_h = max(panel.shape[0] for panel in panels)
-        padded = []
-        for panel in panels:
-            if panel.shape[0] < max_h:
-                pad = np.zeros(
-                    (max_h - panel.shape[0], panel.shape[1], 3), dtype=np.uint8
-                )
-                panel = np.vstack([panel, pad])
-            padded.append(panel)
-        separator = np.full((max_h, 8, 3), 24, dtype=np.uint8)
-        canvas = padded[0]
-        for panel in padded[1:]:
-            canvas = np.hstack([canvas, separator, panel])
-        cv2_module.imshow(f"{self.camera_name}: depth debug", canvas)
-        cv2_module.waitKey(1)
 
     def _prepare_policy_inputs(
         self, obs, depth_image, depth_frame_id=None, *, advance: bool
@@ -689,36 +564,14 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             (d_min + d_max) * 0.5,
             dtype=np.float32,
         )
-        debug_depth_view = self.debug_depth_view
-        self.debug_depth_view = False
-        try:
-            self._preprocess_depth(sample)
-        finally:
-            self.debug_depth_view = debug_depth_view
+        self._preprocess_depth(sample)
 
     def _warmup_policy(self):
         for _ in range(5):
             self._backend.run(self._policy_inputs)
 
     def close(self):
-        try:
-            if self._calibration_recorder is not None:
-                self._calibration_recorder.close()
-        finally:
-            self._backend.close()
-
-    @staticmethod
-    def _model_name(model):
-        if isinstance(model, ModelSpec):
-            for artifact in model.artifacts:
-                path = Path(artifact.path)
-                if path.suffix.lower() == ".onnx":
-                    return path.stem
-                source = getattr(artifact, "source_onnx", None)
-                if source is not None:
-                    return Path(source).stem
-            return Path(model.artifacts[0].path).stem
-        return Path(model).stem
+        self._backend.close()
 
     @staticmethod
     def _shape_dim(dim):

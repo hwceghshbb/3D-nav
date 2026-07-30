@@ -13,7 +13,6 @@ from __future__ import annotations
 
 from collections import deque
 from pathlib import Path
-import time
 
 import numpy as np
 
@@ -938,9 +937,6 @@ class RgmtExternalReferencePolicy(JointPolicy):
             joint_pos[RGMT_COMMAND_WINDOW_SIZE // 2],
         )
 
-        monitor = self._runtime.options.monitor_enabled
-        if monitor:
-            started = time.perf_counter_ns()
         self._build_observation(
             frame,
             joint_pos,
@@ -949,21 +945,8 @@ class RgmtExternalReferencePolicy(JointPolicy):
             reference_ang_vel,
             advance=advance,
         )
-        if monitor:
-            input_done = time.perf_counter_ns()
         outputs = self._backend.run(self._inputs)
-        if monitor:
-            backend_done = time.perf_counter_ns()
         self._decode_actor(outputs, self._reference_center, advance=advance)
-        if monitor:
-            done = time.perf_counter_ns()
-            self._runtime.monitor.record(
-                self._policy_name,
-                input_done - started,
-                backend_done - input_done,
-                done - backend_done,
-                done - started,
-            )
         return self.output
 
     def step_streaming(
