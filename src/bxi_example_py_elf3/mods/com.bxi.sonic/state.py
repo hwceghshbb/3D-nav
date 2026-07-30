@@ -235,12 +235,12 @@ class SonicTeleopState(
         self._stale_sides.clear()
 
     def on_update(self, ctx: RobotControlContext, dt: float) -> None:
-        if ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
-            ctx.request_state(
-                "com.bxi.basic_actions/zero_torque",
-                trigger="sonic_orientation_safety",
-            )
-            return
+        # if ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
+        #     ctx.request_state(
+        #         "com.bxi.basic_actions/zero_torque",
+        #         trigger="sonic_orientation_safety",
+        #     )
+        #     return
         self._apply_frame(ctx, self.sample_running_frame(ctx, dt, advance=True))
         self._update_gripper()
 

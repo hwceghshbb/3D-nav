@@ -101,7 +101,7 @@ events:
     value: 9
   reset_alignment:
     slot: btn_9
-    value: 2
+    value: 1
 
 states:
   sonic_teleop:
