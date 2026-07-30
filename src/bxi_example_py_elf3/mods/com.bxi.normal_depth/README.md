@@ -61,3 +61,22 @@ orbbec_enable_sdk_filters: true
 DisparityTransform 是 SDK 对部分深度格式必需的基础转换，会始终保留；开启
 `orbbec_enable_sdk_filters` 时还会启用设备推荐的空间、时间、降噪和孔洞填充
 滤镜。Linux 主机仍需安装 Mod 中附带的 Orbbec udev 规则。
+
+## RKNN INT8 校准数据
+
+深度模型需要用真实运行分布做 INT8 校准。设置以下环境变量后启动控制器：
+
+```bash
+BXI_RKNN_CALIBRATION_DIR=/tmp/bxi_rknn_calibration \
+BXI_RKNN_CALIBRATION_EVERY=5 \
+BXI_RKNN_CALIBRATION_MAX=500 \
+ros2 launch bxi_example_py_elf3 example_demo_hw.launch.py
+```
+
+采集发生在深度预处理和 observation history 组装之后，因此写入的是模型实际
+收到的 `obs_history` 与 `depth_data`，不是原始相机图。控制线程只复制内存，后台
+线程负责 `.npy` 和 `dataset.txt` 写盘。默认 `origin_camera` 模式采集 `dagger2`；
+要采集 `normal_depth`，将状态的 `mode` 改为 `depth_walk` 后另跑一次。
+
+完整校验和转换命令见 `tools/benchmark/README.md` 的
+“Capture and build a representative INT8 model”。

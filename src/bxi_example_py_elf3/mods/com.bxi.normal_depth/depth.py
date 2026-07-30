@@ -7,6 +7,7 @@ import time
 import numpy as np
 
 from bxi_example_py_elf3.framework.inference import (
+    CalibrationDatasetRecorder,
     HistoryBuffer,
     InferenceFrame,
     InferenceRuntime,
@@ -144,6 +145,7 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         self.counter = 0
         self.last_depth_frame_id = None
         self._depth_previewed = False
+        self._calibration_recorder = None
 
         self._initialize_model(model_source, backend)
         self.publish_output(
@@ -196,6 +198,9 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         )
         self._configure_model_io()
         self._allocate_model_buffers()
+        self._calibration_recorder = CalibrationDatasetRecorder.from_environment(
+            self._model_name(model)
+        )
         self._warmup_depth_preprocessing()
         self._clear_state()
         self._warmup_policy()
@@ -263,6 +268,8 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             depth_frame_id=frame.depth_frame_id,
             advance=advance,
         )
+        if advance and self._calibration_recorder is not None:
+            self._calibration_recorder.capture(self._policy_inputs)
         if monitor:
             input_done = time.perf_counter_ns()
         ort_outputs = self._backend.run(self._policy_inputs)
@@ -694,7 +701,24 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
             self._backend.run(self._policy_inputs)
 
     def close(self):
-        self._backend.close()
+        try:
+            if self._calibration_recorder is not None:
+                self._calibration_recorder.close()
+        finally:
+            self._backend.close()
+
+    @staticmethod
+    def _model_name(model):
+        if isinstance(model, ModelSpec):
+            for artifact in model.artifacts:
+                path = Path(artifact.path)
+                if path.suffix.lower() == ".onnx":
+                    return path.stem
+                source = getattr(artifact, "source_onnx", None)
+                if source is not None:
+                    return Path(source).stem
+            return Path(model.artifacts[0].path).stem
+        return Path(model).stem
 
     @staticmethod
     def _shape_dim(dim):
