@@ -141,17 +141,17 @@ class AnyMotionState(
 
     def on_update(self, ctx: RobotControlContext, dt: float) -> None:
         self._apply_frame(ctx, self.sample_running_frame(ctx, dt, advance=True))
-        if self.policy.finished(self.params.end_frame_trim):
-            ctx.request_state(
-                self.params.finish_state,
-                trigger="any_motion_finished",
-                transition={
-                    "profile": "dual_running_blend",
-                    "duration": self.params.end_transition_seconds,
-                    "curve": "smootherstep",
-                    "sample_from": True,
-                },
-            )
+        # if self.policy.finished(self.params.end_frame_trim):
+        #     ctx.request_state(
+        #         self.params.finish_state,
+        #         trigger="any_motion_finished",
+        #         transition={
+        #             "profile": "dual_running_blend",
+        #             "duration": self.params.end_transition_seconds,
+        #             "curve": "smootherstep",
+        #             "sample_from": True,
+        #         },
+        #     )
 
     def on_action(self, ctx: RobotControlContext, action_name: str) -> bool:
         if action_name != "toggle_pause":

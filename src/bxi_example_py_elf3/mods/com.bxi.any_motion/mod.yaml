@@ -27,7 +27,7 @@ events:
 states:
   any_motion:
     params:
-      npz: assets/lichenxi.npz
+      npz: assets/lie_down.npz
       # start_frame: None
       # end_frame: None
       reference_yaw_mode: initial
@@ -43,10 +43,18 @@ routes:
   - from: com.bxi.basic_actions/normal
     event: activate
     to: any_motion
-    transition: soft_switch
+    transition:
+      profile: dual_running_blend
+      duration: 0.6
   - from: any_motion
     event: com.bxi.basic_actions/normal
     to: com.bxi.basic_actions/normal
+    transition:
+      profile: dual_running_blend
+      duration: 0.6
+  - from: any_motion
+    event: com.bxi.basic_actions/pd_brake
+    to: com.bxi.basic_actions/pd_brake
     transition:
       profile: dual_running_blend
       duration: 0.6
