@@ -28,6 +28,9 @@ states:
   any_motion:
     params:
       npz: assets/lichenxi.npz
+      # start_frame: None
+      # end_frame: None
+      reference_yaw_mode: initial
     manifest:
       label: 任意动作
       priority: 880

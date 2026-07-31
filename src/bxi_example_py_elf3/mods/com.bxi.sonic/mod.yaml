@@ -20,11 +20,18 @@ runtime_requirements:
     - package: std_msgs
   system: []
 
+runtime_profiles:
+  pico_bootstrap:
+    mode: host
+  host_ros:
+    mode: host
+
 nodes:
   pico_manager:
     runtime: command
     entrypoint: pico/manager_launcher.py
     interpreter: python3
+    runtime_profile: pico_bootstrap
     execution: process
     lifecycle: state
     states:
@@ -37,18 +44,6 @@ nodes:
       - "50"
     environment:
       PYTHONUNBUFFERED: "1"
-      PYTHONHOME:
-        unset: true
-      PYTHONEXECUTABLE:
-        unset: true
-      __PYVENV_LAUNCHER__:
-        unset: true
-      LD_LIBRARY_PATH:
-        prepend:
-          - "${SONIC_XRT_SERVICE_DIR:-/opt/apps/roboticsservice}/SDK/x64"
-          - "${SONIC_XRT_SERVICE_DIR:-/opt/apps/roboticsservice}"
-          - "${SONIC_XRT_SERVICE_DIR:-/opt/apps/roboticsservice}/lib"
-        existing_only: true
     manifest:
       label: SONIC PICO管理器
     runtime_requirements:
@@ -68,6 +63,7 @@ nodes:
     runtime: python
     entrypoint: pico.pose_to_smpl_ref_bridge:create_node
     execution: in_process
+    runtime_profile: host_ros
     lifecycle: state
     states:
       - sonic_teleop

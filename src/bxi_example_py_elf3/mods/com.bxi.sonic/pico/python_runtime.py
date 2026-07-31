@@ -8,11 +8,35 @@ from pathlib import Path
 import shutil
 import subprocess
 import sys
+from dataclasses import dataclass
 from typing import Iterable, Sequence
+
+from service_runtime import runtime_platform_tag, runtime_python_tag
 
 
 _PROBE_TIMEOUT_SECONDS = 15.0
 _SELECTED_PYTHON_ENV = "BXI_SONIC_SELECTED_PYTHON"
+_BINDING_SOURCE_ENV = "BXI_SONIC_XRT_BINDING_SOURCE"
+_ENVIRONMENT_BINDING = "environment"
+_BUNDLED_BINDING = "bundled"
+XRT_REQUIRED_CALLS = (
+    "init",
+    "close",
+    "is_body_data_available",
+    "get_body_joints_pose",
+    "get_time_stamp_ns",
+    "get_left_trigger",
+    "get_right_trigger",
+    "get_left_grip",
+    "get_right_grip",
+    "get_left_axis",
+    "get_right_axis",
+    "get_left_menu_button",
+    "get_A_button",
+    "get_B_button",
+    "get_X_button",
+    "get_Y_button",
+)
 _SCRIPT_BOOTSTRAP = (
     "import os, runpy, sys\n"
     "script = os.path.abspath(sys.argv[1])\n"
@@ -21,6 +45,37 @@ _SCRIPT_BOOTSTRAP = (
     "sys.path.insert(0, script_dir)\n"
     "runpy.run_path(script, run_name='__main__')\n"
 )
+
+
+@dataclass(frozen=True)
+class PythonSelection:
+    executable: Path
+    binding_source: str
+
+
+def _mod_root() -> Path:
+    return Path(
+        os.environ.get("BXI_MOD_ROOT", Path(__file__).absolute().parents[1])
+    ).expanduser().absolute()
+
+
+def vendor_python_directory() -> Path:
+    """Return the packaged binary-extension directory for this platform."""
+    return _mod_root() / "vendor" / "python" / runtime_python_tag()
+
+
+def activate_vendor_python() -> Path:
+    """Make packaged vendor bindings importable without PYTHONPATH."""
+    directory = vendor_python_directory()
+    if not directory.is_dir():
+        raise RuntimeError(
+            "bundled xrobotoolkit_sdk is unavailable for "
+            f"{runtime_python_tag()}: {directory}"
+        )
+    value = str(directory)
+    if value not in sys.path:
+        sys.path.insert(0, value)
+    return directory
 
 
 def _clean_python_environment() -> dict[str, str]:
@@ -63,7 +118,8 @@ def _unique_paths(values: Iterable[str | Path]) -> tuple[Path, ...]:
 
 def _common_candidates() -> tuple[Path, ...]:
     home = Path.home()
-    values: list[str | Path] = [sys.executable]
+    mod_runtime = _mod_root() / ".runtime" / runtime_platform_tag() / "pico"
+    values: list[str | Path] = [mod_runtime / "bin" / "python", sys.executable]
     for variable in ("VIRTUAL_ENV", "CONDA_PREFIX"):
         root = os.environ.get(variable)
         if root:
@@ -110,12 +166,25 @@ def _conda_candidates() -> tuple[Path, ...]:
 def _probe(
     interpreter: Path,
     imports: Sequence[str],
+    *,
+    vendor_directory: Path | None = None,
 ) -> tuple[bool, str]:
+    vendor_path = str(vendor_directory) if vendor_directory is not None else ""
     code = (
-        "import importlib\n"
+        "import importlib, sys\n"
+        f"vendor_path = {vendor_path!r}\n"
+        "if vendor_path:\n"
+        "    sys.path.insert(0, vendor_path)\n"
         f"names = {tuple(imports)!r}\n"
+        "modules = {}\n"
         "for name in names:\n"
-        "    importlib.import_module(name)\n"
+        "    modules[name] = importlib.import_module(name)\n"
+        "if 'xrobotoolkit_sdk' in modules:\n"
+        f"    required = {XRT_REQUIRED_CALLS!r}\n"
+        "    missing = [name for name in required "
+        "if not callable(getattr(modules['xrobotoolkit_sdk'], name, None))]\n"
+        "    if missing:\n"
+        "        raise RuntimeError('missing callable API: ' + ', '.join(missing))\n"
     )
     try:
         completed = subprocess.run(
@@ -139,8 +208,8 @@ def _probe(
 def select_python(
     component: str,
     imports: Sequence[str],
-) -> Path:
-    """Return an interpreter satisfying imports, or raise one complete error."""
+) -> PythonSelection:
+    """Select a user environment first, then retry with the bundled binding."""
     explicit = os.environ.get("SONIC_PICO_PYTHON", "").strip()
     if explicit:
         candidate = _resolve_python(explicit)
@@ -153,30 +222,66 @@ def select_python(
         candidates = _common_candidates()
 
     failures: list[str] = []
-    checked_candidates: set[Path] = set()
+    checked_candidates: set[tuple[Path, str]] = set()
 
-    def try_candidates(values: Sequence[Path]) -> Path | None:
+    def try_candidates(
+        values: Sequence[Path],
+        binding_source: str,
+    ) -> PythonSelection | None:
+        vendor_directory = (
+            vendor_python_directory()
+            if binding_source == _BUNDLED_BINDING
+            else None
+        )
         for candidate in values:
-            if candidate in checked_candidates:
+            key = (candidate, binding_source)
+            if key in checked_candidates:
                 continue
-            checked_candidates.add(candidate)
-            available, reason = _probe(candidate, imports)
+            checked_candidates.add(key)
+            available, reason = _probe(
+                candidate,
+                imports,
+                vendor_directory=vendor_directory,
+            )
             if available:
                 print(
-                    f"[sonic-python] {component}: selected {candidate}",
+                    f"[sonic-python] {component}: selected {candidate}; "
+                    f"xrobotoolkit_sdk={binding_source}",
                     flush=True,
                 )
-                return candidate
-            failures.append(f"  - {candidate}: {reason}")
+                return PythonSelection(candidate, binding_source)
+            failures.append(
+                f"  - {candidate} [{binding_source} binding]: {reason}"
+            )
         return None
 
-    selected = try_candidates(candidates)
+    # Search every user-managed environment before considering the bundled
+    # extension. This prevents a working pip/conda installation from being
+    # shadowed merely because an earlier interpreter can use the fallback.
+    selected = try_candidates(candidates, _ENVIRONMENT_BINDING)
     if selected is not None:
         return selected
+    conda_candidates: tuple[Path, ...] = ()
     if not explicit:
-        selected = try_candidates(_conda_candidates())
+        conda_candidates = _conda_candidates()
+        selected = try_candidates(conda_candidates, _ENVIRONMENT_BINDING)
         if selected is not None:
             return selected
+
+    bundled_directory = vendor_python_directory()
+    if bundled_directory.is_dir():
+        selected = try_candidates(candidates, _BUNDLED_BINDING)
+        if selected is not None:
+            return selected
+        if not explicit:
+            selected = try_candidates(conda_candidates, _BUNDLED_BINDING)
+            if selected is not None:
+                return selected
+    else:
+        failures.append(
+            "  - bundled binding unavailable for target "
+            f"{runtime_python_tag()}: {bundled_directory}"
+        )
 
     checked = "\n".join(failures) if failures else "  - no Python candidates found"
     requirements = Path(__file__).resolve().parents[1] / "requirements-pico.txt"
@@ -185,8 +290,10 @@ def select_python(
         f"{', '.join(imports)}\nchecked:\n{checked}\n"
         "Install the dependencies into one environment:\n"
         f"  <python> -m pip install -r {requirements}\n"
-        "Install the matching xrobotoolkit_sdk wheel when required, then either "
-        "set SONIC_PICO_PYTHON=<python> or restart the Mod for auto-discovery."
+        "Install xrobotoolkit_sdk into the selected environment, or use a target "
+        "for which the Mod supplies the fallback binding at "
+        f"{vendor_python_directory()}. Then set SONIC_PICO_PYTHON=<python> or "
+        "restart the Mod for auto-discovery."
     )
 
 
@@ -197,14 +304,17 @@ def reexec_if_needed(component: str, imports: Sequence[str]) -> None:
         current = Path(sys.executable)
     previously_selected = _resolve_python(os.environ.get(_SELECTED_PYTHON_ENV, ""))
     if previously_selected == current:
+        if os.environ.get(_BINDING_SOURCE_ENV) == _BUNDLED_BINDING:
+            activate_vendor_python()
         return
     selected = select_python(component, imports)
     environment = _clean_python_environment()
-    environment[_SELECTED_PYTHON_ENV] = str(selected)
+    environment[_SELECTED_PYTHON_ENV] = str(selected.executable)
+    environment[_BINDING_SOURCE_ENV] = selected.binding_source
     os.execve(
-        str(selected),
+        str(selected.executable),
         (
-            str(selected),
+            str(selected.executable),
             "-E",
             "-s",
             "-c",
@@ -216,4 +326,11 @@ def reexec_if_needed(component: str, imports: Sequence[str]) -> None:
     )
 
 
-__all__ = ["reexec_if_needed", "select_python"]
+__all__ = [
+    "PythonSelection",
+    "XRT_REQUIRED_CALLS",
+    "activate_vendor_python",
+    "reexec_if_needed",
+    "select_python",
+    "vendor_python_directory",
+]

@@ -21,6 +21,7 @@ import zmq
 
 from gear_sonic.trl.utils.numpy_smpl import compute_from_body_poses
 from gear_sonic.utils.teleop.zmq.zmq_poller import ZMQPoller
+from service_runtime import resolve_service_root, service_library_paths
 
 try:
     from gear_sonic.utils.teleop.zmq.zmq_planner_sender import (
@@ -48,9 +49,7 @@ except ImportError:
 VR3PtPoseVisualizer = None
 
 
-XRT_SERVICE_ROOT = Path(
-    os.environ.get("SONIC_XRT_SERVICE_DIR", "/opt/apps/roboticsservice")
-).expanduser()
+XRT_SERVICE_ROOT = resolve_service_root()
 XRT_SERVICE_EXECUTABLE = str(XRT_SERVICE_ROOT / "RoboticsServiceProcess")
 XRT_SERVICE_STOP_TIMEOUT_SECONDS = 3.0
 PICO_RATE_WINDOW_SECONDS = 1.0
@@ -92,16 +91,22 @@ def _restore_signal_handlers(previous_handlers: dict[signal.Signals, object]) ->
 def _xrt_service_environment(service_dir: Path) -> dict[str, str]:
     """Reproduce the vendor runService.sh environment without losing the real PID."""
     env = os.environ.copy()
-    ld_paths = [
-        env.get("LD_LIBRARY_PATH", ""),
-        str(service_dir),
-        str(service_dir / "lib"),
-        str(service_dir / "SDK" / "x64"),
-    ]
-    env["LD_LIBRARY_PATH"] = ":".join(path for path in ld_paths if path)
+    ld_paths = [str(path) for path in service_library_paths(service_dir)]
+    inherited_ld_path = env.get("LD_LIBRARY_PATH", "")
+    if inherited_ld_path:
+        ld_paths.extend(path for path in inherited_ld_path.split(os.pathsep) if path)
+    env["LD_LIBRARY_PATH"] = os.pathsep.join(dict.fromkeys(ld_paths))
 
-    plugin_paths = [str(service_dir / "plugins") + "/", env.get("QT_PLUGIN_PATH", "")]
-    qml_paths = [str(service_dir / "qml") + "/", env.get("QT_QML_PATH", "")]
+    plugin_paths = [
+        str(service_dir / "plugins") + "/"
+        if (service_dir / "plugins").is_dir()
+        else "",
+        env.get("QT_PLUGIN_PATH", ""),
+    ]
+    qml_paths = [
+        str(service_dir / "qml") + "/" if (service_dir / "qml").is_dir() else "",
+        env.get("QT_QML_PATH", ""),
+    ]
     env["QT_PLUGIN_PATH"] = ":".join(path for path in plugin_paths if path)
     env["QT_QML_PATH"] = ":".join(path for path in qml_paths if path)
     return env

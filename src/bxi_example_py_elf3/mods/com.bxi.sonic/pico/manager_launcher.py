@@ -1,23 +1,18 @@
-"""Launch the packaged GEAR-SONIC PICO manager in its isolated vendor Python.
+"""Launch the packaged GEAR-SONIC PICO manager in an isolated selected Python.
 
-Only the headless runtime dependency set required by ELF3 is vendored.
+User-installed XR dependencies are preferred; packaged binaries are fallback.
 """
 
 from __future__ import annotations
 
 import os
+from pathlib import Path
+import runpy
 import sys
 
-from bootstrap_python import ensure_clean_start
-
-
-ensure_clean_start()
-
-import runpy
-from pathlib import Path
-
 from runtime_config import PICO_PORT
-from python_runtime import reexec_if_needed
+from python_runtime import XRT_REQUIRED_CALLS, reexec_if_needed
+from service_runtime import prepare_service_environment, resolve_service_root
 
 
 MANAGER_IMPORTS = (
@@ -29,26 +24,6 @@ MANAGER_IMPORTS = (
     "xrobotoolkit_sdk",
 )
 CONFIG_ERROR_EXIT_CODE = getattr(os, "EX_CONFIG", 78)
-XRT_REQUIRED_CALLS = (
-    "init",
-    "close",
-    "is_body_data_available",
-    "get_body_joints_pose",
-    "get_time_stamp_ns",
-    "get_left_trigger",
-    "get_right_trigger",
-    "get_left_grip",
-    "get_right_grip",
-    "get_left_axis",
-    "get_right_axis",
-    "get_left_menu_button",
-    "get_A_button",
-    "get_B_button",
-    "get_X_button",
-    "get_Y_button",
-)
-
-
 def _vendor_root() -> Path:
     root = Path(__file__).resolve().parent
     manager = root / "gear_sonic" / "scripts" / "pico_manager_thread_server.py"
@@ -68,9 +43,7 @@ def _validate_manager_runtime() -> None:
             "xrobotoolkit_sdk is incompatible; missing callable API: "
             + ", ".join(missing)
         )
-    service_root = Path(
-        os.environ.get("SONIC_XRT_SERVICE_DIR", "/opt/apps/roboticsservice")
-    ).expanduser()
+    service_root = resolve_service_root()
     service_executable = service_root / "RoboticsServiceProcess"
     if not service_executable.is_file() or not os.access(service_executable, os.X_OK):
         raise RuntimeError(
@@ -81,6 +54,7 @@ def _validate_manager_runtime() -> None:
 
 def main() -> int:
     try:
+        prepare_service_environment()
         reexec_if_needed("pico_manager", MANAGER_IMPORTS)
         vendor_root = _vendor_root()
         _validate_manager_runtime()
