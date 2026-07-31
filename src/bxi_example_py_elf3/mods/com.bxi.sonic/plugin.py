@@ -54,7 +54,7 @@ def _build_state(
 
 
 def create_mod(context: ModLoadContext) -> ModDefinition:
-    context.register_resource(SONIC_POLICY, _load_policy, policy="on_demand")
+    context.register_resource(SONIC_POLICY, _load_policy, policy="startup")
     policy = context.resource(SONIC_POLICY)
     return ModDefinition(
         state_factories={
