@@ -5,7 +5,6 @@ version: 1.0.0
 api: ">=4,<5"
 enable: true
 entrypoint: plugin:create_mod
-visibility: protected
 requires:
   - id: com.bxi.basic_actions
     version: ">=1,<2"
