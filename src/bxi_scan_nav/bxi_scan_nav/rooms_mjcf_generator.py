@@ -396,8 +396,7 @@ def make_stair_flight(prefix, base_z, top_z, center_x, start_y, end_y, stair_wid
             center_y = start_y + (step_index + 0.5) * step_run
             rail_z = tread_z + rail_size_z
             geoms.append(box_xml(f"{prefix}_left_side_wall_{step_index:02d}", left_x, center_y, rail_z, 0.045, rail_size_y, rail_size_z, "room_wall"))
-            if step_index >= 2:
-                geoms.append(box_xml(f"{prefix}_right_side_wall_{step_index:02d}", right_x, center_y, rail_z, 0.045, rail_size_y, rail_size_z, "room_wall"))
+            geoms.append(box_xml(f"{prefix}_right_side_wall_{step_index:02d}", right_x, center_y, rail_z, 0.045, rail_size_y, rail_size_z, "room_wall"))
     return geoms
 
 
@@ -408,11 +407,12 @@ def make_switchback_stairs(prefix, lower_floor_z, upper_floor_z, east_wall_x, ce
     x_first = east_wall_x + 3.10
     x_second = east_wall_x + 7.80
     landing_x = (x_first + x_second) * 0.5
+    landing_half_x = (x_second - x_first) * 0.5 + stair_width * 0.5 + 0.10
     geoms = [
-        floor_xml(f"{prefix}_mid_landing", landing_x, y_high, mid_z, 2.95, 0.95),
-        box_xml(f"{prefix}_mid_landing_north_guard", landing_x, y_high + 1.02, mid_z + 0.85, 3.05, 0.055, 0.85, "room_wall"),
-        box_xml(f"{prefix}_mid_landing_west_guard", landing_x - 3.05, y_high, mid_z + 0.85, 0.055, 0.98, 0.85, "room_wall"),
-        box_xml(f"{prefix}_mid_landing_east_guard", landing_x + 3.05, y_high, mid_z + 0.85, 0.055, 0.98, 0.85, "room_wall"),
+        floor_xml(f"{prefix}_mid_landing", landing_x, y_high, mid_z, landing_half_x, 0.95),
+        box_xml(f"{prefix}_mid_landing_north_guard", landing_x, y_high + 1.02, mid_z + 0.85, landing_half_x + 0.10, 0.055, 0.85, "room_wall"),
+        box_xml(f"{prefix}_mid_landing_west_guard", landing_x - landing_half_x, y_high, mid_z + 0.85, 0.055, 0.98, 0.85, "room_wall"),
+        box_xml(f"{prefix}_mid_landing_east_guard", landing_x + landing_half_x, y_high, mid_z + 0.85, 0.055, 0.98, 0.85, "room_wall"),
     ]
     geoms.extend(
         make_stair_flight(
@@ -487,6 +487,17 @@ def make_stair_rail_connector_board(name, floor_z, x_first, x_second, y_pos, sta
     )
 
 
+def make_stair_end_bridge(name, floor_z, stair_x, center_y, stair_width):
+    return floor_xml(
+        name,
+        stair_x,
+        center_y - 2.45,
+        floor_z,
+        stair_width * 0.5,
+        0.32,
+    )
+
+
 def level_prefix(index, floors):
     if floors == 1:
         return "level_00"
@@ -533,7 +544,8 @@ def make_scene(
 
     level_centers = [first_center_x + index * inter_level_gap for index in range(floors)]
     level_floor_z = [index * floor_height for index in range(floors)]
-    stair_hole_margin = 0.80
+    stair_hole_margin = 0.12
+    stair_hole_y_margin = 0.20
     for index, (level_center_x, floor_z) in enumerate(zip(level_centers, level_floor_z)):
         prefix = level_prefix(index, floors)
         east_x = level_center_x + level_width * 0.5
@@ -561,8 +573,8 @@ def make_scene(
         stair_holes = []
         if index < floors - 1:
             outgoing_stair_x = east_x + 3.10
-            outgoing_hole_min_y = center_y - 2.70
-            outgoing_hole_max_y = center_y + 2.70
+            outgoing_hole_min_y = center_y - 2.25 - stair_hole_y_margin
+            outgoing_hole_max_y = center_y + 2.25 + stair_hole_y_margin
             stair_holes.append(
                 (
                     outgoing_stair_x,
@@ -573,8 +585,8 @@ def make_scene(
             )
         if index > 0:
             incoming_stair_x = east_x + 7.80
-            incoming_hole_min_y = center_y - 2.70
-            incoming_hole_max_y = center_y + 2.70
+            incoming_hole_min_y = center_y - 2.25 - stair_hole_y_margin
+            incoming_hole_max_y = center_y + 2.25 + stair_hole_y_margin
             stair_holes.append(
                 (
                     incoming_stair_x,
@@ -588,23 +600,32 @@ def make_scene(
                 f"{prefix}_stair_hall",
                 stair_hall_center_x,
                 center_y,
-                floor_z - 0.020,
+                floor_z,
                 stair_hall_size_x,
                 stair_hall_size_y,
                 stair_holes,
             )
         )
+        if index < floors - 1:
+            outgoing_stair_x = east_x + 3.10
+            floor_geoms.append(
+                make_stair_end_bridge(
+                    f"{prefix}_stair_bottom_bridge",
+                    floor_z,
+                    outgoing_stair_x,
+                    center_y,
+                    stair_width,
+                )
+            )
         if index > 0:
             incoming_stair_x = east_x + 7.80
-            top_landing_y = center_y - 2.25
             floor_geoms.append(
-                floor_xml(
+                make_stair_end_bridge(
                     f"{prefix}_stair_top_bridge",
-                    incoming_stair_x - stair_width * 0.5 - stair_hole_margin * 0.5,
-                    top_landing_y,
                     floor_z,
-                    stair_hole_margin * 0.5 + 0.05,
-                    0.55,
+                    incoming_stair_x,
+                    center_y,
+                    stair_width,
                 )
             )
         floor_geoms.append(feature_box_xml(f"{prefix}_stair_doorway_marker", east_x + 1.05, center_y, floor_z + 0.020, 1.80, door_width * 0.46, 0.004, "feature_floor_light"))
