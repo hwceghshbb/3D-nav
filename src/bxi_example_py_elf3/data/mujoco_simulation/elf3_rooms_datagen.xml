@@ -17,54 +17,54 @@
   </asset>
   <worldbody>
     <geom name="lower_floor" type="box" pos="2.500 2.500 -0.018" size="5.350 5.350 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_00" type="box" pos="7.875 -1.225 -0.018" size="1.625 1.625 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_01" type="box" pos="7.875 2.500 -0.018" size="1.625 2.100 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_02" type="box" pos="7.875 6.225 -0.018" size="1.625 1.625 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_03" type="box" pos="10.600 -1.225 -0.018" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_04" type="box" pos="10.600 6.225 -0.018" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_05" type="box" pos="14.875 -1.225 -0.018" size="3.175 1.625 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_06" type="box" pos="14.875 2.500 -0.018" size="3.175 2.100 0.025" material="room_floor"/>
-    <geom name="lower_stair_hall_tile_07" type="box" pos="14.875 6.225 -0.018" size="3.175 1.625 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_00" type="box" pos="7.815 -1.225 -0.018" size="1.565 1.625 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_01" type="box" pos="7.815 2.500 -0.018" size="1.565 2.100 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_02" type="box" pos="7.815 6.225 -0.018" size="1.565 1.625 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_03" type="box" pos="10.600 -1.225 -0.018" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_04" type="box" pos="10.600 6.225 -0.018" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_05" type="box" pos="14.935 -1.225 -0.018" size="3.115 1.625 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_06" type="box" pos="14.935 2.500 -0.018" size="3.115 2.100 0.025" material="room_floor"/>
+    <geom name="lower_stair_hall_tile_07" type="box" pos="14.935 6.225 -0.018" size="3.115 1.625 0.025" material="room_floor"/>
     <geom name="lower_stair_doorway_marker" type="box" pos="8.550 2.500 0.020" size="1.800 2.208 0.004" material="feature_floor_light" contype="0" conaffinity="0"/>
     <geom name="middle_01_floor" type="box" pos="2.500 2.500 4.182" size="5.350 5.350 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_00" type="box" pos="7.875 -1.225 4.182" size="1.625 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_01" type="box" pos="7.875 2.500 4.182" size="1.625 2.100 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_02" type="box" pos="7.875 6.225 4.182" size="1.625 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_03" type="box" pos="10.600 -1.225 4.182" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_04" type="box" pos="10.600 6.225 4.182" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_05" type="box" pos="12.950 -1.225 4.182" size="1.250 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_06" type="box" pos="12.950 2.500 4.182" size="1.250 2.100 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_07" type="box" pos="12.950 6.225 4.182" size="1.250 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_08" type="box" pos="15.300 -1.225 4.182" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_09" type="box" pos="15.300 6.225 4.182" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_10" type="box" pos="17.225 -1.225 4.182" size="0.825 1.625 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_11" type="box" pos="17.225 2.500 4.182" size="0.825 2.100 0.025" material="room_floor"/>
-    <geom name="middle_01_stair_hall_tile_12" type="box" pos="17.225 6.225 4.182" size="0.825 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_00" type="box" pos="7.815 -1.225 4.182" size="1.565 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_01" type="box" pos="7.815 2.500 4.182" size="1.565 2.100 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_02" type="box" pos="7.815 6.225 4.182" size="1.565 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_03" type="box" pos="10.600 -1.225 4.182" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_04" type="box" pos="10.600 6.225 4.182" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_05" type="box" pos="12.950 -1.225 4.182" size="1.130 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_06" type="box" pos="12.950 2.500 4.182" size="1.130 2.100 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_07" type="box" pos="12.950 6.225 4.182" size="1.130 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_08" type="box" pos="15.300 -1.225 4.182" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_09" type="box" pos="15.300 6.225 4.182" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_10" type="box" pos="17.285 -1.225 4.182" size="0.765 1.625 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_11" type="box" pos="17.285 2.500 4.182" size="0.765 2.100 0.025" material="room_floor"/>
+    <geom name="middle_01_stair_hall_tile_12" type="box" pos="17.285 6.225 4.182" size="0.765 1.625 0.025" material="room_floor"/>
     <geom name="middle_01_stair_doorway_marker" type="box" pos="8.550 2.500 4.220" size="1.800 2.208 0.004" material="feature_floor_light" contype="0" conaffinity="0"/>
     <geom name="middle_02_floor" type="box" pos="2.500 2.500 8.382" size="5.350 5.350 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_00" type="box" pos="7.875 -1.225 8.382" size="1.625 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_01" type="box" pos="7.875 2.500 8.382" size="1.625 2.100 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_02" type="box" pos="7.875 6.225 8.382" size="1.625 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_03" type="box" pos="10.600 -1.225 8.382" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_04" type="box" pos="10.600 6.225 8.382" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_05" type="box" pos="12.950 -1.225 8.382" size="1.250 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_06" type="box" pos="12.950 2.500 8.382" size="1.250 2.100 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_07" type="box" pos="12.950 6.225 8.382" size="1.250 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_08" type="box" pos="15.300 -1.225 8.382" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_09" type="box" pos="15.300 6.225 8.382" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_10" type="box" pos="17.225 -1.225 8.382" size="0.825 1.625 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_11" type="box" pos="17.225 2.500 8.382" size="0.825 2.100 0.025" material="room_floor"/>
-    <geom name="middle_02_stair_hall_tile_12" type="box" pos="17.225 6.225 8.382" size="0.825 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_00" type="box" pos="7.815 -1.225 8.382" size="1.565 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_01" type="box" pos="7.815 2.500 8.382" size="1.565 2.100 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_02" type="box" pos="7.815 6.225 8.382" size="1.565 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_03" type="box" pos="10.600 -1.225 8.382" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_04" type="box" pos="10.600 6.225 8.382" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_05" type="box" pos="12.950 -1.225 8.382" size="1.130 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_06" type="box" pos="12.950 2.500 8.382" size="1.130 2.100 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_07" type="box" pos="12.950 6.225 8.382" size="1.130 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_08" type="box" pos="15.300 -1.225 8.382" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_09" type="box" pos="15.300 6.225 8.382" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_10" type="box" pos="17.285 -1.225 8.382" size="0.765 1.625 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_11" type="box" pos="17.285 2.500 8.382" size="0.765 2.100 0.025" material="room_floor"/>
+    <geom name="middle_02_stair_hall_tile_12" type="box" pos="17.285 6.225 8.382" size="0.765 1.625 0.025" material="room_floor"/>
     <geom name="middle_02_stair_doorway_marker" type="box" pos="8.550 2.500 8.420" size="1.800 2.208 0.004" material="feature_floor_light" contype="0" conaffinity="0"/>
     <geom name="top_floor" type="box" pos="2.500 2.500 12.582" size="5.350 5.350 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_00" type="box" pos="10.225 -1.225 12.582" size="3.975 1.625 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_01" type="box" pos="10.225 2.500 12.582" size="3.975 2.100 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_02" type="box" pos="10.225 6.225 12.582" size="3.975 1.625 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_03" type="box" pos="15.300 -1.225 12.582" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_04" type="box" pos="15.300 6.225 12.582" size="1.100 1.625 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_05" type="box" pos="17.225 -1.225 12.582" size="0.825 1.625 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_06" type="box" pos="17.225 2.500 12.582" size="0.825 2.100 0.025" material="room_floor"/>
-    <geom name="top_stair_hall_tile_07" type="box" pos="17.225 6.225 12.582" size="0.825 1.625 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_00" type="box" pos="10.165 -1.225 12.582" size="3.915 1.625 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_01" type="box" pos="10.165 2.500 12.582" size="3.915 2.100 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_02" type="box" pos="10.165 6.225 12.582" size="3.915 1.625 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_03" type="box" pos="15.300 -1.225 12.582" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_04" type="box" pos="15.300 6.225 12.582" size="1.220 1.625 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_05" type="box" pos="17.285 -1.225 12.582" size="0.765 1.625 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_06" type="box" pos="17.285 2.500 12.582" size="0.765 2.100 0.025" material="room_floor"/>
+    <geom name="top_stair_hall_tile_07" type="box" pos="17.285 6.225 12.582" size="0.765 1.625 0.025" material="room_floor"/>
     <geom name="top_stair_doorway_marker" type="box" pos="8.550 2.500 12.620" size="1.800 2.208 0.004" material="feature_floor_light" contype="0" conaffinity="0"/>
     <geom name="lower_wall_north_0" type="box" pos="2.500 7.500 1.750" size="5.000 0.060 1.750" material="room_wall"/>
     <geom name="lower_wall_south_0" type="box" pos="2.500 -2.500 1.750" size="5.000 0.060 1.750" material="room_wall"/>
@@ -120,18 +120,18 @@
     <geom name="middle_01_stair_hall_east_guard" type="box" pos="18.050 2.500 5.025" size="0.060 5.350 0.825" material="room_wall"/>
     <geom name="middle_01_stair_hall_north_guard" type="box" pos="12.150 7.850 5.025" size="5.900 0.060 0.825" material="room_wall"/>
     <geom name="middle_01_stair_hall_south_guard" type="box" pos="12.150 -2.850 5.025" size="5.900 0.060 0.825" material="room_wall"/>
-    <geom name="middle_01_floor_inner_rail_board" type="box" pos="12.950 0.400 5.360" size="1.260 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
+    <geom name="middle_01_floor_inner_rail_board" type="box" pos="12.950 0.400 5.360" size="1.220 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
     <geom name="middle_02_stair_hall_east_guard" type="box" pos="18.050 2.500 9.225" size="0.060 5.350 0.825" material="room_wall"/>
     <geom name="middle_02_stair_hall_north_guard" type="box" pos="12.150 7.850 9.225" size="5.900 0.060 0.825" material="room_wall"/>
     <geom name="middle_02_stair_hall_south_guard" type="box" pos="12.150 -2.850 9.225" size="5.900 0.060 0.825" material="room_wall"/>
-    <geom name="middle_02_floor_inner_rail_board" type="box" pos="12.950 0.400 9.560" size="1.260 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
+    <geom name="middle_02_floor_inner_rail_board" type="box" pos="12.950 0.400 9.560" size="1.220 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
     <geom name="top_stair_hall_east_guard" type="box" pos="18.050 2.500 13.425" size="0.060 5.350 0.825" material="room_wall"/>
     <geom name="top_stair_hall_north_guard" type="box" pos="12.150 7.850 13.425" size="5.900 0.060 0.825" material="room_wall"/>
     <geom name="top_stair_hall_south_guard" type="box" pos="12.150 -2.850 13.425" size="5.900 0.060 0.825" material="room_wall"/>
-    <geom name="stair_00_01_mid_landing" type="box" pos="12.950 4.600 2.082" size="3.550 0.950 0.025" material="room_floor"/>
+    <geom name="stair_00_01_mid_landing" type="box" pos="12.950 5.100 2.082" size="3.550 0.500 0.025" material="room_floor"/>
     <geom name="stair_00_01_mid_landing_north_guard" type="box" pos="12.950 5.620 2.950" size="3.650 0.055 0.850" material="room_wall"/>
-    <geom name="stair_00_01_mid_landing_west_guard" type="box" pos="9.400 4.600 2.950" size="0.055 0.980 0.850" material="room_wall"/>
-    <geom name="stair_00_01_mid_landing_east_guard" type="box" pos="16.500 4.600 2.950" size="0.055 0.980 0.850" material="room_wall"/>
+    <geom name="stair_00_01_mid_landing_west_guard" type="box" pos="9.400 5.100 2.950" size="0.055 0.480 0.850" material="room_wall"/>
+    <geom name="stair_00_01_mid_landing_east_guard" type="box" pos="16.500 5.100 2.950" size="0.055 0.480 0.850" material="room_wall"/>
     <geom name="stair_00_01_flight_a_step_00" type="box" pos="10.600 0.550 0.075" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_00_01_flight_a_tread_00" type="box" pos="10.600 0.550 0.154" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_00_01_flight_a_step_01" type="box" pos="10.600 0.850 0.225" size="1.100 0.150 0.075" material="stair_mat"/>
@@ -244,11 +244,11 @@
     <geom name="stair_00_01_flight_b_right_side_wall_12" type="box" pos="14.130 0.850 4.625" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_left_side_wall_13" type="box" pos="16.470 0.550 4.775" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_right_side_wall_13" type="box" pos="14.130 0.550 4.775" size="0.045 0.150 0.575" material="room_wall"/>
-    <geom name="stair_00_01_mid_landing_inner_rail_board" type="box" pos="12.950 4.600 3.260" size="1.260 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
-    <geom name="stair_01_02_mid_landing" type="box" pos="12.950 4.600 6.282" size="3.550 0.950 0.025" material="room_floor"/>
+    <geom name="stair_00_01_mid_landing_inner_rail_board" type="box" pos="12.950 4.600 3.260" size="1.220 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
+    <geom name="stair_01_02_mid_landing" type="box" pos="12.950 5.100 6.282" size="3.550 0.500 0.025" material="room_floor"/>
     <geom name="stair_01_02_mid_landing_north_guard" type="box" pos="12.950 5.620 7.150" size="3.650 0.055 0.850" material="room_wall"/>
-    <geom name="stair_01_02_mid_landing_west_guard" type="box" pos="9.400 4.600 7.150" size="0.055 0.980 0.850" material="room_wall"/>
-    <geom name="stair_01_02_mid_landing_east_guard" type="box" pos="16.500 4.600 7.150" size="0.055 0.980 0.850" material="room_wall"/>
+    <geom name="stair_01_02_mid_landing_west_guard" type="box" pos="9.400 5.100 7.150" size="0.055 0.480 0.850" material="room_wall"/>
+    <geom name="stair_01_02_mid_landing_east_guard" type="box" pos="16.500 5.100 7.150" size="0.055 0.480 0.850" material="room_wall"/>
     <geom name="stair_01_02_flight_a_step_00" type="box" pos="10.600 0.550 4.275" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_01_02_flight_a_tread_00" type="box" pos="10.600 0.550 4.354" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_01_02_flight_a_step_01" type="box" pos="10.600 0.850 4.425" size="1.100 0.150 0.075" material="stair_mat"/>
@@ -361,11 +361,11 @@
     <geom name="stair_01_02_flight_b_right_side_wall_12" type="box" pos="14.130 0.850 8.825" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_left_side_wall_13" type="box" pos="16.470 0.550 8.975" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_right_side_wall_13" type="box" pos="14.130 0.550 8.975" size="0.045 0.150 0.575" material="room_wall"/>
-    <geom name="stair_01_02_mid_landing_inner_rail_board" type="box" pos="12.950 4.600 7.460" size="1.260 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
-    <geom name="stair_02_03_mid_landing" type="box" pos="12.950 4.600 10.482" size="3.550 0.950 0.025" material="room_floor"/>
+    <geom name="stair_01_02_mid_landing_inner_rail_board" type="box" pos="12.950 4.600 7.460" size="1.220 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
+    <geom name="stair_02_03_mid_landing" type="box" pos="12.950 5.100 10.482" size="3.550 0.500 0.025" material="room_floor"/>
     <geom name="stair_02_03_mid_landing_north_guard" type="box" pos="12.950 5.620 11.350" size="3.650 0.055 0.850" material="room_wall"/>
-    <geom name="stair_02_03_mid_landing_west_guard" type="box" pos="9.400 4.600 11.350" size="0.055 0.980 0.850" material="room_wall"/>
-    <geom name="stair_02_03_mid_landing_east_guard" type="box" pos="16.500 4.600 11.350" size="0.055 0.980 0.850" material="room_wall"/>
+    <geom name="stair_02_03_mid_landing_west_guard" type="box" pos="9.400 5.100 11.350" size="0.055 0.480 0.850" material="room_wall"/>
+    <geom name="stair_02_03_mid_landing_east_guard" type="box" pos="16.500 5.100 11.350" size="0.055 0.480 0.850" material="room_wall"/>
     <geom name="stair_02_03_flight_a_step_00" type="box" pos="10.600 0.550 8.475" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_02_03_flight_a_tread_00" type="box" pos="10.600 0.550 8.554" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_02_03_flight_a_step_01" type="box" pos="10.600 0.850 8.625" size="1.100 0.150 0.075" material="stair_mat"/>
@@ -478,7 +478,7 @@
     <geom name="stair_02_03_flight_b_right_side_wall_12" type="box" pos="14.130 0.850 13.025" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_left_side_wall_13" type="box" pos="16.470 0.550 13.175" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_right_side_wall_13" type="box" pos="14.130 0.550 13.175" size="0.045 0.150 0.575" material="room_wall"/>
-    <geom name="stair_02_03_mid_landing_inner_rail_board" type="box" pos="12.950 4.600 11.660" size="1.260 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
+    <geom name="stair_02_03_mid_landing_inner_rail_board" type="box" pos="12.950 4.600 11.660" size="1.220 0.075 0.035" material="wood_plank" contype="0" conaffinity="0"/>
     <geom name="lower_block_sw_table" type="box" pos="0.150 -2.150 0.360" size="0.550 0.850 0.360" material="room_obstacle"/>
     <geom name="lower_block_nw_column" type="box" pos="0.250 2.100 0.550" size="0.380 0.380 0.550" material="room_obstacle"/>
     <geom name="lower_block_se_sofa" type="box" pos="4.750 -2.200 0.420" size="0.950 0.420 0.420" material="room_obstacle"/>

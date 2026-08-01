@@ -417,11 +417,13 @@ def make_switchback_stairs(
     x_second = east_wall_x + 7.80
     landing_x = (x_first + x_second) * 0.5
     landing_half_x = (x_second - x_first) * 0.5 + stair_width * 0.5 + 0.10
+    landing_depth = 1.0
+    landing_center_y = y_high + landing_depth * 0.5
     geoms = [
-        floor_xml(f"{prefix}_mid_landing", landing_x, y_high, mid_z, landing_half_x, 0.95),
+        floor_xml(f"{prefix}_mid_landing", landing_x, landing_center_y, mid_z, landing_half_x, landing_depth * 0.5),
         box_xml(f"{prefix}_mid_landing_north_guard", landing_x, y_high + 1.02, mid_z + 0.85, landing_half_x + 0.10, 0.055, 0.85, "room_wall"),
-        box_xml(f"{prefix}_mid_landing_west_guard", landing_x - landing_half_x, y_high, mid_z + 0.85, 0.055, 0.98, 0.85, "room_wall"),
-        box_xml(f"{prefix}_mid_landing_east_guard", landing_x + landing_half_x, y_high, mid_z + 0.85, 0.055, 0.98, 0.85, "room_wall"),
+        box_xml(f"{prefix}_mid_landing_west_guard", landing_x - landing_half_x, landing_center_y, mid_z + 0.85, 0.055, landing_depth * 0.5 - 0.02, 0.85, "room_wall"),
+        box_xml(f"{prefix}_mid_landing_east_guard", landing_x + landing_half_x, landing_center_y, mid_z + 0.85, 0.055, landing_depth * 0.5 - 0.02, 0.85, "room_wall"),
     ]
     geoms.extend(
         make_stair_flight(
@@ -478,7 +480,7 @@ def make_stair_hall_rails(prefix, center_x, center_y, floor_z, size_x, size_y, d
 
 
 def make_stair_rail_connector_board(name, floor_z, x_first, x_second, y_pos, stair_width):
-    rail_overlap = 0.08
+    rail_overlap = 0.04
     board_height = 1.16
     left_inner_rail_x = x_first + stair_width * 0.5 + 0.07
     right_inner_rail_x = x_second - stair_width * 0.5 - 0.07
@@ -543,7 +545,7 @@ def make_scene(
     level_centers = [first_center_x + index * inter_level_gap for index in range(floors)]
     level_floor_z = [index * floor_height for index in range(floors)]
     stair_run_half = 2.10
-    stair_hole_margin = 0.0
+    stair_hole_margin = 0.12
     stair_hole_y_margin = 0.0
     for index, (level_center_x, floor_z) in enumerate(zip(level_centers, level_floor_z)):
         prefix = level_prefix(index, floors)
