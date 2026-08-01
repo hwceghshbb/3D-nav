@@ -352,7 +352,18 @@ def make_stairs(prefix, lower_floor_z, upper_floor_z, start_x, end_x, center_y, 
     return steps
 
 
-def make_stair_flight(prefix, base_z, top_z, center_x, start_y, end_y, stair_width, step_count, side_walls=True):
+def make_stair_flight(
+    prefix,
+    base_z,
+    top_z,
+    center_x,
+    start_y,
+    end_y,
+    stair_width,
+    step_count,
+    side_walls=True,
+    rail_end_clearance_steps=3,
+):
     geoms = []
     step_run = (end_y - start_y) / step_count
     step_height = (top_z - base_z) / step_count
@@ -391,7 +402,9 @@ def make_stair_flight(prefix, base_z, top_z, center_x, start_y, end_y, stair_wid
         rail_size_y = abs(step_run) * 0.5
         left_x = center_x + stair_width * 0.5 + 0.07
         right_x = center_x - stair_width * 0.5 - 0.07
-        for step_index in range(step_count):
+        rail_start = max(0, rail_end_clearance_steps)
+        rail_stop = max(rail_start, step_count - rail_end_clearance_steps)
+        for step_index in range(rail_start, rail_stop):
             tread_z = base_z + (step_index + 1) * step_height
             center_y = start_y + (step_index + 0.5) * step_run
             rail_z = tread_z + rail_size_z
@@ -449,16 +462,6 @@ def make_switchback_stairs(
             stair_width,
             step_count_per_flight,
             side_walls=True,
-        )
-    )
-    geoms.append(
-        make_stair_rail_connector_board(
-            f"{prefix}_mid_landing_inner_rail_board",
-            mid_z,
-            x_first,
-            x_second,
-            y_high,
-            stair_width,
         )
     )
     return geoms
@@ -609,17 +612,6 @@ def make_scene(
         )
         floor_geoms.append(feature_box_xml(f"{prefix}_stair_doorway_marker", east_x + 1.05, center_y, floor_z + 0.020, 1.80, door_width * 0.46, 0.004, "feature_floor_light"))
         stair_geoms.extend(make_stair_hall_rails(prefix, stair_hall_center_x, center_y, floor_z, stair_hall_size_x, stair_hall_size_y, door_width))
-        if 0 < index < floors - 1:
-            stair_geoms.append(
-                make_stair_rail_connector_board(
-                    f"{prefix}_floor_inner_rail_board",
-                    floor_z,
-                    east_x + 3.10,
-                    east_x + 7.80,
-                    center_y - stair_run_half,
-                    stair_width,
-                )
-            )
         obstacles.extend(make_level_obstacles(prefix, level_center_x, floor_z))
         floor_features.extend(make_floor_features(prefix, level_center_x, center_y, level_width, level_depth, floor_z))
 
