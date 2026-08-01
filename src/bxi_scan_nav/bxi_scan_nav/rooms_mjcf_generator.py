@@ -400,10 +400,19 @@ def make_stair_flight(prefix, base_z, top_z, center_x, start_y, end_y, stair_wid
     return geoms
 
 
-def make_switchback_stairs(prefix, lower_floor_z, upper_floor_z, east_wall_x, center_y, stair_width, step_count_per_flight):
+def make_switchback_stairs(
+    prefix,
+    lower_floor_z,
+    upper_floor_z,
+    east_wall_x,
+    center_y,
+    stair_width,
+    step_count_per_flight,
+    stair_run_half=2.10,
+):
     mid_z = (lower_floor_z + upper_floor_z) * 0.5
-    y_low = center_y - 2.25
-    y_high = center_y + 2.25
+    y_low = center_y - stair_run_half
+    y_high = center_y + stair_run_half
     x_first = east_wall_x + 3.10
     x_second = east_wall_x + 7.80
     landing_x = (x_first + x_second) * 0.5
@@ -487,11 +496,11 @@ def make_stair_rail_connector_board(name, floor_z, x_first, x_second, y_pos, sta
     )
 
 
-def make_stair_end_bridge(name, floor_z, stair_x, center_y, stair_width):
+def make_stair_end_bridge(name, floor_z, stair_x, stair_end_y, stair_width):
     return floor_xml(
         name,
         stair_x,
-        center_y - 2.45,
+        stair_end_y - 0.20,
         floor_z,
         stair_width * 0.5,
         0.32,
@@ -529,7 +538,7 @@ def make_scene(
     floors=4,
     inter_level_gap=0.0,
     stair_width=2.2,
-    stair_step_count=42,
+    stair_step_count=14,
 ):
     level_width = cols * room_size
     level_depth = rows * room_size
@@ -544,6 +553,7 @@ def make_scene(
 
     level_centers = [first_center_x + index * inter_level_gap for index in range(floors)]
     level_floor_z = [index * floor_height for index in range(floors)]
+    stair_run_half = 2.10
     stair_hole_margin = 0.0
     stair_hole_y_margin = 0.0
     for index, (level_center_x, floor_z) in enumerate(zip(level_centers, level_floor_z)):
@@ -573,8 +583,8 @@ def make_scene(
         stair_holes = []
         if index > 0:
             incoming_stair_x = east_x + 7.80
-            incoming_hole_min_y = center_y - 2.25 - stair_hole_y_margin
-            incoming_hole_max_y = center_y + 2.25 + stair_hole_y_margin
+            incoming_hole_min_y = center_y - stair_run_half - stair_hole_y_margin
+            incoming_hole_max_y = center_y + stair_run_half + stair_hole_y_margin
             stair_holes.append(
                 (
                     incoming_stair_x,
@@ -601,7 +611,7 @@ def make_scene(
                     f"{prefix}_stair_top_bridge",
                     floor_z,
                     incoming_stair_x,
-                    center_y,
+                    center_y - stair_run_half,
                     stair_width,
                 )
             )
@@ -614,7 +624,7 @@ def make_scene(
                     floor_z,
                     east_x + 3.10,
                     east_x + 7.80,
-                    center_y - 2.25,
+                    center_y - stair_run_half,
                     stair_width,
                 )
             )
@@ -635,6 +645,7 @@ def make_scene(
                 center_y=center_y,
                 stair_width=stair_width,
                 step_count_per_flight=stair_step_count,
+                stair_run_half=stair_run_half,
             )
         )
 
@@ -692,7 +703,7 @@ def parse_args():
     parser.add_argument("--floor-height", type=float, default=4.2)
     parser.add_argument("--inter-level-gap", type=float, default=0.0)
     parser.add_argument("--stair-width", type=float, default=2.2)
-    parser.add_argument("--stair-step-count", type=int, default=42)
+    parser.add_argument("--stair-step-count", type=int, default=14)
     parser.add_argument("--include-file", default="elf3.xml")
     return parser.parse_args()
 
