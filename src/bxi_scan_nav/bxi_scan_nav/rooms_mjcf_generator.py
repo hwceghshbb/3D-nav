@@ -362,7 +362,6 @@ def make_stair_flight(
     stair_width,
     step_count,
     side_walls=True,
-    rail_end_clearance_steps=3,
 ):
     geoms = []
     step_run = (end_y - start_y) / step_count
@@ -402,9 +401,7 @@ def make_stair_flight(
         rail_size_y = abs(step_run) * 0.5
         left_x = center_x + stair_width * 0.5 + 0.07
         right_x = center_x - stair_width * 0.5 - 0.07
-        rail_start = max(0, rail_end_clearance_steps)
-        rail_stop = max(rail_start, step_count - rail_end_clearance_steps)
-        for step_index in range(rail_start, rail_stop):
+        for step_index in range(step_count):
             tread_z = base_z + (step_index + 1) * step_height
             center_y = start_y + (step_index + 0.5) * step_run
             rail_z = tread_z + rail_size_z

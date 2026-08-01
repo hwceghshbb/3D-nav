@@ -158,6 +158,12 @@
     <geom name="feature_stair_00_01_flight_a_tread_12" type="box" pos="10.600 4.150 1.954" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_00_01_flight_a_step_13" type="box" pos="10.600 4.450 2.025" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_00_01_flight_a_tread_13" type="box" pos="10.600 4.450 2.104" size="0.704 0.102 0.001" material="feature_floor_light" contype="0" conaffinity="0"/>
+    <geom name="stair_00_01_flight_a_left_side_wall_00" type="box" pos="11.770 0.550 0.725" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_right_side_wall_00" type="box" pos="9.430 0.550 0.725" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_left_side_wall_01" type="box" pos="11.770 0.850 0.875" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_right_side_wall_01" type="box" pos="9.430 0.850 0.875" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_left_side_wall_02" type="box" pos="11.770 1.150 1.025" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_right_side_wall_02" type="box" pos="9.430 1.150 1.025" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_a_left_side_wall_03" type="box" pos="11.770 1.450 1.175" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_a_right_side_wall_03" type="box" pos="9.430 1.450 1.175" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_a_left_side_wall_04" type="box" pos="11.770 1.750 1.325" size="0.045 0.150 0.575" material="room_wall"/>
@@ -174,6 +180,12 @@
     <geom name="stair_00_01_flight_a_right_side_wall_09" type="box" pos="9.430 3.250 2.075" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_a_left_side_wall_10" type="box" pos="11.770 3.550 2.225" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_a_right_side_wall_10" type="box" pos="9.430 3.550 2.225" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_left_side_wall_11" type="box" pos="11.770 3.850 2.375" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_right_side_wall_11" type="box" pos="9.430 3.850 2.375" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_left_side_wall_12" type="box" pos="11.770 4.150 2.525" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_right_side_wall_12" type="box" pos="9.430 4.150 2.525" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_left_side_wall_13" type="box" pos="11.770 4.450 2.675" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_a_right_side_wall_13" type="box" pos="9.430 4.450 2.675" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_step_00" type="box" pos="15.300 4.450 2.175" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_00_01_flight_b_tread_00" type="box" pos="15.300 4.450 2.254" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_00_01_flight_b_step_01" type="box" pos="15.300 4.150 2.325" size="1.100 0.150 0.075" material="stair_mat"/>
@@ -202,6 +214,12 @@
     <geom name="feature_stair_00_01_flight_b_tread_12" type="box" pos="15.300 0.850 4.054" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_00_01_flight_b_step_13" type="box" pos="15.300 0.550 4.125" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_00_01_flight_b_tread_13" type="box" pos="15.300 0.550 4.204" size="0.704 0.102 0.001" material="feature_floor_light" contype="0" conaffinity="0"/>
+    <geom name="stair_00_01_flight_b_left_side_wall_00" type="box" pos="16.470 4.450 2.825" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_right_side_wall_00" type="box" pos="14.130 4.450 2.825" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_left_side_wall_01" type="box" pos="16.470 4.150 2.975" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_right_side_wall_01" type="box" pos="14.130 4.150 2.975" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_left_side_wall_02" type="box" pos="16.470 3.850 3.125" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_right_side_wall_02" type="box" pos="14.130 3.850 3.125" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_left_side_wall_03" type="box" pos="16.470 3.550 3.275" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_right_side_wall_03" type="box" pos="14.130 3.550 3.275" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_left_side_wall_04" type="box" pos="16.470 3.250 3.425" size="0.045 0.150 0.575" material="room_wall"/>
@@ -218,6 +236,12 @@
     <geom name="stair_00_01_flight_b_right_side_wall_09" type="box" pos="14.130 1.750 4.175" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_left_side_wall_10" type="box" pos="16.470 1.450 4.325" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_00_01_flight_b_right_side_wall_10" type="box" pos="14.130 1.450 4.325" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_left_side_wall_11" type="box" pos="16.470 1.150 4.475" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_right_side_wall_11" type="box" pos="14.130 1.150 4.475" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_left_side_wall_12" type="box" pos="16.470 0.850 4.625" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_right_side_wall_12" type="box" pos="14.130 0.850 4.625" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_left_side_wall_13" type="box" pos="16.470 0.550 4.775" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_00_01_flight_b_right_side_wall_13" type="box" pos="14.130 0.550 4.775" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_mid_landing" type="box" pos="12.950 5.100 6.282" size="3.550 0.500 0.025" material="room_floor"/>
     <geom name="stair_01_02_mid_landing_north_guard" type="box" pos="12.950 5.620 7.150" size="3.650 0.055 0.850" material="room_wall"/>
     <geom name="stair_01_02_mid_landing_west_guard" type="box" pos="9.400 5.100 7.150" size="0.055 0.480 0.850" material="room_wall"/>
@@ -250,6 +274,12 @@
     <geom name="feature_stair_01_02_flight_a_tread_12" type="box" pos="10.600 4.150 6.154" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_01_02_flight_a_step_13" type="box" pos="10.600 4.450 6.225" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_01_02_flight_a_tread_13" type="box" pos="10.600 4.450 6.304" size="0.704 0.102 0.001" material="feature_floor_light" contype="0" conaffinity="0"/>
+    <geom name="stair_01_02_flight_a_left_side_wall_00" type="box" pos="11.770 0.550 4.925" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_right_side_wall_00" type="box" pos="9.430 0.550 4.925" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_left_side_wall_01" type="box" pos="11.770 0.850 5.075" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_right_side_wall_01" type="box" pos="9.430 0.850 5.075" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_left_side_wall_02" type="box" pos="11.770 1.150 5.225" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_right_side_wall_02" type="box" pos="9.430 1.150 5.225" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_a_left_side_wall_03" type="box" pos="11.770 1.450 5.375" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_a_right_side_wall_03" type="box" pos="9.430 1.450 5.375" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_a_left_side_wall_04" type="box" pos="11.770 1.750 5.525" size="0.045 0.150 0.575" material="room_wall"/>
@@ -266,6 +296,12 @@
     <geom name="stair_01_02_flight_a_right_side_wall_09" type="box" pos="9.430 3.250 6.275" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_a_left_side_wall_10" type="box" pos="11.770 3.550 6.425" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_a_right_side_wall_10" type="box" pos="9.430 3.550 6.425" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_left_side_wall_11" type="box" pos="11.770 3.850 6.575" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_right_side_wall_11" type="box" pos="9.430 3.850 6.575" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_left_side_wall_12" type="box" pos="11.770 4.150 6.725" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_right_side_wall_12" type="box" pos="9.430 4.150 6.725" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_left_side_wall_13" type="box" pos="11.770 4.450 6.875" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_a_right_side_wall_13" type="box" pos="9.430 4.450 6.875" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_step_00" type="box" pos="15.300 4.450 6.375" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_01_02_flight_b_tread_00" type="box" pos="15.300 4.450 6.454" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_01_02_flight_b_step_01" type="box" pos="15.300 4.150 6.525" size="1.100 0.150 0.075" material="stair_mat"/>
@@ -294,6 +330,12 @@
     <geom name="feature_stair_01_02_flight_b_tread_12" type="box" pos="15.300 0.850 8.254" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_01_02_flight_b_step_13" type="box" pos="15.300 0.550 8.325" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_01_02_flight_b_tread_13" type="box" pos="15.300 0.550 8.404" size="0.704 0.102 0.001" material="feature_floor_light" contype="0" conaffinity="0"/>
+    <geom name="stair_01_02_flight_b_left_side_wall_00" type="box" pos="16.470 4.450 7.025" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_right_side_wall_00" type="box" pos="14.130 4.450 7.025" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_left_side_wall_01" type="box" pos="16.470 4.150 7.175" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_right_side_wall_01" type="box" pos="14.130 4.150 7.175" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_left_side_wall_02" type="box" pos="16.470 3.850 7.325" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_right_side_wall_02" type="box" pos="14.130 3.850 7.325" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_left_side_wall_03" type="box" pos="16.470 3.550 7.475" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_right_side_wall_03" type="box" pos="14.130 3.550 7.475" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_left_side_wall_04" type="box" pos="16.470 3.250 7.625" size="0.045 0.150 0.575" material="room_wall"/>
@@ -310,6 +352,12 @@
     <geom name="stair_01_02_flight_b_right_side_wall_09" type="box" pos="14.130 1.750 8.375" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_left_side_wall_10" type="box" pos="16.470 1.450 8.525" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_01_02_flight_b_right_side_wall_10" type="box" pos="14.130 1.450 8.525" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_left_side_wall_11" type="box" pos="16.470 1.150 8.675" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_right_side_wall_11" type="box" pos="14.130 1.150 8.675" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_left_side_wall_12" type="box" pos="16.470 0.850 8.825" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_right_side_wall_12" type="box" pos="14.130 0.850 8.825" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_left_side_wall_13" type="box" pos="16.470 0.550 8.975" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_01_02_flight_b_right_side_wall_13" type="box" pos="14.130 0.550 8.975" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_mid_landing" type="box" pos="12.950 5.100 10.482" size="3.550 0.500 0.025" material="room_floor"/>
     <geom name="stair_02_03_mid_landing_north_guard" type="box" pos="12.950 5.620 11.350" size="3.650 0.055 0.850" material="room_wall"/>
     <geom name="stair_02_03_mid_landing_west_guard" type="box" pos="9.400 5.100 11.350" size="0.055 0.480 0.850" material="room_wall"/>
@@ -342,6 +390,12 @@
     <geom name="feature_stair_02_03_flight_a_tread_12" type="box" pos="10.600 4.150 10.354" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_02_03_flight_a_step_13" type="box" pos="10.600 4.450 10.425" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_02_03_flight_a_tread_13" type="box" pos="10.600 4.450 10.504" size="0.704 0.102 0.001" material="feature_floor_light" contype="0" conaffinity="0"/>
+    <geom name="stair_02_03_flight_a_left_side_wall_00" type="box" pos="11.770 0.550 9.125" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_right_side_wall_00" type="box" pos="9.430 0.550 9.125" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_left_side_wall_01" type="box" pos="11.770 0.850 9.275" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_right_side_wall_01" type="box" pos="9.430 0.850 9.275" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_left_side_wall_02" type="box" pos="11.770 1.150 9.425" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_right_side_wall_02" type="box" pos="9.430 1.150 9.425" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_a_left_side_wall_03" type="box" pos="11.770 1.450 9.575" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_a_right_side_wall_03" type="box" pos="9.430 1.450 9.575" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_a_left_side_wall_04" type="box" pos="11.770 1.750 9.725" size="0.045 0.150 0.575" material="room_wall"/>
@@ -358,6 +412,12 @@
     <geom name="stair_02_03_flight_a_right_side_wall_09" type="box" pos="9.430 3.250 10.475" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_a_left_side_wall_10" type="box" pos="11.770 3.550 10.625" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_a_right_side_wall_10" type="box" pos="9.430 3.550 10.625" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_left_side_wall_11" type="box" pos="11.770 3.850 10.775" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_right_side_wall_11" type="box" pos="9.430 3.850 10.775" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_left_side_wall_12" type="box" pos="11.770 4.150 10.925" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_right_side_wall_12" type="box" pos="9.430 4.150 10.925" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_left_side_wall_13" type="box" pos="11.770 4.450 11.075" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_a_right_side_wall_13" type="box" pos="9.430 4.450 11.075" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_step_00" type="box" pos="15.300 4.450 10.575" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_02_03_flight_b_tread_00" type="box" pos="15.300 4.450 10.654" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_02_03_flight_b_step_01" type="box" pos="15.300 4.150 10.725" size="1.100 0.150 0.075" material="stair_mat"/>
@@ -386,6 +446,12 @@
     <geom name="feature_stair_02_03_flight_b_tread_12" type="box" pos="15.300 0.850 12.454" size="0.704 0.102 0.001" material="feature_floor_dark" contype="0" conaffinity="0"/>
     <geom name="stair_02_03_flight_b_step_13" type="box" pos="15.300 0.550 12.525" size="1.100 0.150 0.075" material="stair_mat"/>
     <geom name="feature_stair_02_03_flight_b_tread_13" type="box" pos="15.300 0.550 12.604" size="0.704 0.102 0.001" material="feature_floor_light" contype="0" conaffinity="0"/>
+    <geom name="stair_02_03_flight_b_left_side_wall_00" type="box" pos="16.470 4.450 11.225" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_right_side_wall_00" type="box" pos="14.130 4.450 11.225" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_left_side_wall_01" type="box" pos="16.470 4.150 11.375" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_right_side_wall_01" type="box" pos="14.130 4.150 11.375" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_left_side_wall_02" type="box" pos="16.470 3.850 11.525" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_right_side_wall_02" type="box" pos="14.130 3.850 11.525" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_left_side_wall_03" type="box" pos="16.470 3.550 11.675" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_right_side_wall_03" type="box" pos="14.130 3.550 11.675" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_left_side_wall_04" type="box" pos="16.470 3.250 11.825" size="0.045 0.150 0.575" material="room_wall"/>
@@ -402,6 +468,12 @@
     <geom name="stair_02_03_flight_b_right_side_wall_09" type="box" pos="14.130 1.750 12.575" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_left_side_wall_10" type="box" pos="16.470 1.450 12.725" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="stair_02_03_flight_b_right_side_wall_10" type="box" pos="14.130 1.450 12.725" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_left_side_wall_11" type="box" pos="16.470 1.150 12.875" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_right_side_wall_11" type="box" pos="14.130 1.150 12.875" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_left_side_wall_12" type="box" pos="16.470 0.850 13.025" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_right_side_wall_12" type="box" pos="14.130 0.850 13.025" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_left_side_wall_13" type="box" pos="16.470 0.550 13.175" size="0.045 0.150 0.575" material="room_wall"/>
+    <geom name="stair_02_03_flight_b_right_side_wall_13" type="box" pos="14.130 0.550 13.175" size="0.045 0.150 0.575" material="room_wall"/>
     <geom name="lower_block_sw_table" type="box" pos="0.150 -2.150 0.360" size="0.550 0.850 0.360" material="room_obstacle"/>
     <geom name="lower_block_nw_column" type="box" pos="0.250 2.100 0.550" size="0.380 0.380 0.550" material="room_obstacle"/>
     <geom name="lower_block_se_sofa" type="box" pos="4.750 -2.200 0.420" size="0.950 0.420 0.420" material="room_obstacle"/>
