@@ -1,0 +1,83 @@
+sources:
+  keyboard:
+    type: keyboard
+    poll_timeout_us: 20000
+    hold_ms: 1000
+    stop: space
+    signals:
+      keyboard.vx:
+        from: keyboard.axis
+        negative: s
+        positive: w
+      keyboard.vy:
+        from: keyboard.axis
+        negative: d
+        positive: a
+      keyboard.yaw:
+        from: keyboard.axis
+        negative: e
+        positive: q
+      keyboard.normal:
+        from: keyboard.key
+        key: '1'
+        hold_ms: 200
+      keyboard.recover:
+        from: keyboard.key
+        key: '2'
+        hold_ms: 200
+
+controls:
+  move.vx:
+    type: analog
+    sources:
+    - source: keyboard.vx
+    deadzone: 0.03
+    min: -1.0
+    max: 1.0
+    alpha: 0.08
+  move.vy:
+    type: analog
+    sources:
+    - source: keyboard.vy
+    deadzone: 0.03
+    min: -1.0
+    max: 1.0
+    alpha: 0.08
+  move.yaw:
+    type: analog
+    sources:
+    - source: keyboard.yaw
+    deadzone: 0.03
+    min: -1.0
+    max: 1.0
+    alpha: 0.10
+  keyboard.normal_event:
+    type: bool
+    source: keyboard.normal
+  keyboard.recover_event:
+    type: bool
+    source: keyboard.recover
+
+outputs:
+  conflict_policy: first_wins
+  publish_on_change: false
+  analog:
+    vx:
+      control: move.vx
+      scale: 0.25
+      limit: [-0.25, 0.25]
+    vy:
+      control: move.vy
+      scale: 0.12
+      limit: [-0.12, 0.12]
+    yaw:
+      control: move.yaw
+      scale: 0.45
+      limit: [-0.45, 0.45]
+  level:
+  - output: btn_1=1
+    when:
+    - keyboard.normal_event
+  - output: btn_6=1
+    when:
+    - keyboard.recover_event

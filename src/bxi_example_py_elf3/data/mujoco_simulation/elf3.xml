@@ -19,6 +19,7 @@
   <asset>
     <material name="silver" rgba="0.7 0.7 0.7 1"/>
     <material name="black" rgba="0.2 0.2 0.2 1"/>
+    <material name="d435i_lens" rgba="0.02 0.04 0.06 1"/>
     <mesh name="torso_link" content_type="model/stl" file="torso_link.STL"/>
     <mesh name="waist_y_link" content_type="model/stl" file="waist_y_link.STL"/>
     <mesh name="waist_x_link" content_type="model/stl" file="waist_x_link.STL"/>
@@ -52,7 +53,7 @@
   </asset>
 
   <worldbody>
-    <body name="torso_link" childclass="elf3" pos="0 0 1.1">
+    <body name="torso_link" childclass="elf3" pos="0.8 -1.0 1.1">
       <inertial pos="0.001601 0.000219 0.02325" quat="0.999996 -0.00137768 -0.000418876 -0.00258007" mass="12.004" diaginertia="0.293168 0.265897 0.0611617"/>
       <joint name="world_joint" type="free"/>
       <geom rgba="0.75294 0.75294 0.75294 1" mesh="torso_link"/>
@@ -61,6 +62,14 @@
       <geom name="head_collision" class="collision" size="0.065" fromto="-0.01 0.00 0.30 0.02 0.00 0.30"/>
       <site name="imu_in_torso" pos="0 0 0" size="0.01"/>
       <camera name="tracking" pos="1.734 -1.135 0.35" quat="0.683353 0.555871 0.298684 0.367183" mode="trackcom"/>
+      <camera name="front_line_camera" pos="0.18 0 0.28" xyaxes="0 -1 0 0.707107 0 0.707107" fovy="60"/>
+      <geom name="d435i_body" type="box" pos="0.16 0 0.25" size="0.025 0.08 0.018" material="black" contype="0" conaffinity="0"/>
+      <geom name="d435i_left_lens" type="cylinder" pos="0.187 0.03 0.25" quat="0.707107 0 0.707107 0" size="0.009 0.004" material="d435i_lens" contype="0" conaffinity="0"/>
+      <geom name="d435i_right_lens" type="cylinder" pos="0.187 -0.03 0.25" quat="0.707107 0 0.707107 0" size="0.009 0.004" material="d435i_lens" contype="0" conaffinity="0"/>
+      <camera name="d435i_color" pos="0.16 0 0.25" xyaxes="0 -1 0 0 0 1" fovy="69.4"/>
+      <camera name="d435i_depth" pos="0.16 0 0.25" xyaxes="0 -1 0 0 0 1" fovy="85.0"/>
+      <camera name="depth_cam" pos="0.1152 0.0175 -0.1358" quat="0.9848078 0 -0.1736482 0" fovy="89.51" mode="fixed"/>
+      <camera name="origin_depth_cam" pos="0.1152 0.0175 -0.1358" quat="0.9848078 0 -0.1736482 0" fovy="45.2" mode="fixed"/>
       <light pos="0 0 2" dir="0 0 -1" mode="trackcom"/>
       <body name="waist_y_link" pos="0 0 -0.2265">
         <inertial pos="0 0 0" quat="0 0.707107 0 0.707107" mass="0.0661518" diaginertia="2.799e-05 1.845e-05 1.104e-05"/>

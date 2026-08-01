@@ -1,0 +1,40 @@
+scan_planner_adapter:
+  ros__parameters:
+    odom_in: /simulation/odom
+    odom_out: /scan_planner/odom
+    cloud_in: /scan_planner/local_cloud
+    cloud_out: /scan_planner/depth_cloud
+
+depth_to_pointcloud:
+  ros__parameters:
+    depth_topic: /simulation/d435i/depth/image_raw
+    camera_info_topic: /simulation/d435i/depth/camera_info
+    pointcloud_topic: /scan_planner/local_cloud
+    stride: 4
+
+cmd_vel_to_motion_commands:
+  ros__parameters:
+    cmd_vel_topic: /scan_planner/cmd_vel
+    motion_commands_topic: motion_commands
+    max_vx: 0.35
+    max_vy: 0.15
+    max_yawdot: 0.55
+    policy_vx_scale: 3.0
+    policy_vy_scale: 2.0
+    policy_yawdot_scale: 2.0
+    height_des: 1.0
+
+d435i_pose_publisher:
+  ros__parameters:
+    odom_topic: /simulation/odom
+    base_pose_topic: /simulation/base/pose
+    base_footprint_pose_topic: /simulation/base_footprint/pose
+    sensor_pose_topic: /simulation/d435i/depth/pose
+    base_footprint_frame_id: bxi_base_footprint
+    base_frame_id: bxi_base_link
+    sensor_frame_id: d435i_depth_optical_frame
+    offset_x: 0.16
+    offset_y: 0.0
+    offset_z: 0.25
+    preserve_base_footprint_z: true
+    base_footprint_z_offset: -0.3
