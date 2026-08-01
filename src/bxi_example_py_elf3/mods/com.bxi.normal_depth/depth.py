@@ -87,7 +87,7 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         self.ang_vel_scale = 1.0
         self.cmd = np.zeros(3, dtype=np.float32)
 
-        self.camera_name = "depth_cam"
+        self.camera_name = "body_depth_camera"
         self.output_resolution = [64, 36]
         self.width = 36
         self.height = 64
@@ -147,7 +147,7 @@ class HumanoidGaitDepthPolicyIsaaclab(JointPolicy):
         if depth_profile != "origin_camera":
             raise ValueError(f"Unsupported depth profile: {depth_profile}")
 
-        self.camera_name = "origin_depth_cam"
+        self.camera_name = "origin_body_depth_camera"
         self.width = 48
         self.height = 36
         self.crop_region = None

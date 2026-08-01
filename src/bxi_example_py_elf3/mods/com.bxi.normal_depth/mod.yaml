@@ -16,91 +16,6 @@ runtime_requirements:
   ros: []
   system: []
 
-nodes:
-  depth_camera_publisher:
-    runtime: python
-    entrypoint: auto_depth_node:create_node
-    execution: process
-    lifecycle: mod
-    arguments: []
-    namespace: ""
-    remappings: {}
-    manifest:
-      label: 自动深度相机发布器（RealSense / Gemini 335）
-    runtime_requirements:
-      python: []
-      ros:
-        - package: sensor_msgs
-      system: []
-    params:
-      # 自动检测与后端选择
-      camera_backend: auto
-      camera_preference: orbbec
-      camera_detect_timeout_sec: 5.0
-      camera_detect_interval_sec: 0.2
-
-      # RealSense 与 Orbbec 共用：设备选择和数据流 profile
-      serial: ""
-      depth_w: 480
-      depth_h: 270
-      depth_fps: 60
-      color_w: 848
-      color_h: 480
-      color_fps: 30
-      enable_color: false
-      enable_ir: false
-      enable_imu: false
-
-      # Intel RealSense 独有：深度后处理滤镜
-      decimation: 1
-      spat_alpha: 0.45
-      spat_delta: 20.0
-      spat_holes: 2
-      temp_holes: 4
-      temp_alpha: 0.45
-      temp_delta: 20.0
-      hole1: 1
-      hole2: 2
-
-      # Orbbec Gemini 335 独有：设备选择、SDK 滤镜和内参回退
-      orbbec_serial: ""
-      orbbec_usb_port: ""
-      orbbec_enable_sdk_filters: true
-      orbbec_fallback_hfov: 90.0
-      orbbec_fallback_vfov: 65.0
-
-      # RealSense 与 Orbbec 共用：深度裁剪、缩放和发布
-      publish_rate_hz: 60
-      out_w: 64
-      out_h: 36
-      hfov: 89.24
-      vfov: 58.06
-      publish_full: true
-      publish_origin_camera: true
-      origin_out_w: 36
-      origin_out_h: 48
-      origin_hfov: 45.2
-      origin_vfov: 58.0616969
-      origin_min_dist: 0.2
-      origin_max_dist: 3.0
-      min_dist: 0.2
-      max_dist: 2.5
-      frame_depth: camera_depth_optical_frame
-      frame_color: camera_color_optical_frame
-      topic_depth: /camera/depth/image_raw
-      topic_depth_info: /camera/depth/camera_info
-      topic_small: /camera/depth/image_64x36
-      topic_small_info: /camera/depth/camera_info_64x36
-      topic_origin: /camera/depth/image_36x48
-      topic_origin_info: /camera/depth/camera_info_36x48
-      topic_color: /camera/color/image_raw
-      topic_ir1: /camera/infra1/image_raw
-      topic_ir2: /camera/infra2/image_raw
-      topic_imu: /camera/imu
-    restart:
-      max_attempts: 3
-      delay: 1.0
-
 events:
   activate:
     slot: btn_10
@@ -118,9 +33,16 @@ states:
     speed_profile: com.bxi.basic_actions/normal
     params:
       mode: origin_camera
-      topic: /camera/depth/image_36x48
+      # Matches the MuJoCo camera name and the hardware deployment mapping.
+      camera_name: body_depth_camera
+      topic: ""
+      camera_info_topic: ""
       depth_uint16_scale: 0.001
       depth_timeout_sec: 0.5
+      horizontal_fov: 45.2
+      vertical_fov: 58.0616969
+      min_dist: 0.2
+      max_dist: 3.0
 
 routes:
   - from: com.bxi.basic_actions/normal

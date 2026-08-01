@@ -10,6 +10,7 @@ from .depth import (
     HumanoidGaitDepthPolicyIsaaclab,
     HumanoidGaitOriginCameraPolicyIsaaclab,
 )
+from .depth_projection import ProjectionSpec
 from .state import NormalDepthState
 
 
@@ -45,10 +46,24 @@ def _build_normal_depth_state(
     mode = state.string_param("mode", "origin_camera")
     if mode == "origin_camera":
         policy = origin_policy
-        default_topic = "/camera/depth/image_36x48"
+        projection = ProjectionSpec(
+            output_width=36,
+            output_height=48,
+            horizontal_fov_deg=state.float_param("horizontal_fov", 45.2),
+            vertical_fov_deg=state.float_param("vertical_fov", 58.0616969),
+            minimum_m=state.float_param("min_dist", 0.2),
+            maximum_m=state.float_param("max_dist", 3.0),
+        )
     elif mode == "depth_walk":
         policy = legacy_policy
-        default_topic = "/camera/depth/image_64x36"
+        projection = ProjectionSpec(
+            output_width=64,
+            output_height=36,
+            horizontal_fov_deg=state.float_param("horizontal_fov", 89.24),
+            vertical_fov_deg=state.float_param("vertical_fov", 58.06),
+            minimum_m=state.float_param("min_dist", 0.2),
+            maximum_m=state.float_param("max_dist", 2.5),
+        )
     else:
         raise ValueError(
             f"state '{state.name}' param 'mode' must be "
@@ -60,9 +75,12 @@ def _build_normal_depth_state(
         state.state_id,
         policy,
         mode=mode,
-        depth_image_topic=state.string_param("topic", default_topic),
+        camera_name=state.string_param("camera_name", "body_depth_camera"),
+        depth_image_topic=state.string_param("topic", ""),
+        camera_info_topic=state.string_param("camera_info_topic", ""),
         depth_uint16_scale=state.float_param("depth_uint16_scale", 0.001),
         depth_timeout_sec=state.float_param("depth_timeout_sec", 1.0),
+        projection=projection,
     )
 
 

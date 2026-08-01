@@ -1,7 +1,12 @@
 # Depth camera vendor runtimes
 
-This directory contains the prebuilt, Mod-local RealSense and Orbbec Python
-SDK runtimes used by `com.bxi.normal_depth`.
+This directory contains the prebuilt fallback RealSense and Orbbec Python SDK
+runtimes used only by the standalone `bxi_depth_camera` process.
+
+The launcher probes the host environment first. A matching directory below is
+added only when the corresponding system SDK cannot be imported, so these
+artifacts never replace a working user installation and never enter the
+controller process' `PYTHONPATH`.
 
 - Target: Linux x86_64, CPython 3.10 (`cp310`)
 - `python/linux-x86_64-cpython-310/pyrealsense2`: PyPI

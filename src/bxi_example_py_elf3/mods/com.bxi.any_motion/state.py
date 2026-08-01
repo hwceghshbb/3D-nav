@@ -117,7 +117,8 @@ class AnyMotionState(
         ctx: RobotControlContext,
         from_state: StateBehavior[RobotControlContext],
     ) -> None:
-        ctx.preheat_model(self.policy)
+        # ctx.preheat_model(self.policy)
+        ...
 
     def on_enter(self, ctx: RobotControlContext) -> None:
         self.playing = True
