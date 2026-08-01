@@ -496,17 +496,6 @@ def make_stair_rail_connector_board(name, floor_z, x_first, x_second, y_pos, sta
     )
 
 
-def make_stair_end_bridge(name, floor_z, stair_x, stair_end_y, stair_width):
-    return floor_xml(
-        name,
-        stair_x,
-        stair_end_y - 0.20,
-        floor_z,
-        stair_width * 0.5,
-        0.32,
-    )
-
-
 def level_prefix(index, floors):
     if floors == 1:
         return "level_00"
@@ -581,6 +570,18 @@ def make_scene(
         stair_hall_size_x = 5.90
         stair_hall_size_y = 5.35
         stair_holes = []
+        if index < floors - 1:
+            outgoing_stair_x = east_x + 3.10
+            outgoing_hole_min_y = center_y - stair_run_half - stair_hole_y_margin
+            outgoing_hole_max_y = center_y + stair_run_half + stair_hole_y_margin
+            stair_holes.append(
+                (
+                    outgoing_stair_x,
+                    (outgoing_hole_min_y + outgoing_hole_max_y) * 0.5,
+                    stair_width * 0.5 + stair_hole_margin,
+                    (outgoing_hole_max_y - outgoing_hole_min_y) * 0.5,
+                )
+            )
         if index > 0:
             incoming_stair_x = east_x + 7.80
             incoming_hole_min_y = center_y - stair_run_half - stair_hole_y_margin
@@ -604,17 +605,6 @@ def make_scene(
                 stair_holes,
             )
         )
-        if index > 0:
-            incoming_stair_x = east_x + 7.80
-            floor_geoms.append(
-                make_stair_end_bridge(
-                    f"{prefix}_stair_top_bridge",
-                    floor_z,
-                    incoming_stair_x,
-                    center_y - stair_run_half,
-                    stair_width,
-                )
-            )
         floor_geoms.append(feature_box_xml(f"{prefix}_stair_doorway_marker", east_x + 1.05, center_y, floor_z + 0.020, 1.80, door_width * 0.46, 0.004, "feature_floor_light"))
         stair_geoms.extend(make_stair_hall_rails(prefix, stair_hall_center_x, center_y, floor_z, stair_hall_size_x, stair_hall_size_y, door_width))
         if 0 < index < floors - 1:
