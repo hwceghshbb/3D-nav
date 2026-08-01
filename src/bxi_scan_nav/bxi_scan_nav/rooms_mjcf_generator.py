@@ -559,6 +559,18 @@ def make_scene(
         stair_hall_size_x = 5.90
         stair_hall_size_y = 5.35
         stair_holes = []
+        if index < floors - 1:
+            outgoing_stair_x = east_x + 3.10
+            outgoing_hole_min_y = center_y - 2.70
+            outgoing_hole_max_y = center_y + 2.70
+            stair_holes.append(
+                (
+                    outgoing_stair_x,
+                    (outgoing_hole_min_y + outgoing_hole_max_y) * 0.5,
+                    stair_width * 0.5 + stair_hole_margin,
+                    (outgoing_hole_max_y - outgoing_hole_min_y) * 0.5,
+                )
+            )
         if index > 0:
             incoming_stair_x = east_x + 7.80
             incoming_hole_min_y = center_y - 2.70
