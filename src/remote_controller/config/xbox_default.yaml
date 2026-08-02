@@ -4,7 +4,7 @@ sources:
     device: /dev/input/js0
     signals:
       gamepad.left_y:
-        from: js.axis.3
+        from: js.axis.1
         timeout_ms: 3000
         failsafe: 0.0
       gamepad.left_x:
@@ -12,7 +12,7 @@ sources:
         timeout_ms: 3000
         failsafe: 0.0
       gamepad.yaw:
-        from: js.axis.6
+        from: js.axis.2
         timeout_ms: 3000
         failsafe: 0.0
       gamepad.trigger_left:

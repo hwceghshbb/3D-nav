@@ -35,6 +35,21 @@ Use `start_controller:=false` for planner bring-up and visualization. Switch it
 to `true` only after the robot startup policy is ready to consume
 `motion_commands`.
 
+To use OctoPlanner3D as the global planner and keep SCAN-Planner as the local
+planner:
+
+```bash
+source /opt/ros/humble/setup.bash
+source install/setup.bash
+ros2 launch bxi_scan_nav elf3_octo_scan_nav.launch.py start_controller:=false
+```
+
+The Octo node builds an OctoMap from `input_pcd`, subscribes to
+`/simulation/base_footprint/pose` and `/move_base_simple/goal`, then publishes
+the 3D global path on `/initial_path` for SCAN-Planner `fsm.navi_mode:=3`.
+Override `input_pcd:=/path/to/map.pcd` when using a map that matches the
+current MuJoCo scene.
+
 To launch the full RTAB-Map + global A* + SCAN local planner stack:
 
 ```bash

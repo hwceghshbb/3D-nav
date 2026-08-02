@@ -536,6 +536,8 @@ class AmpRunState(RobotControlState):
         self.max_vel = 0.0
         self.pre_cmd_vel_run = np.array([0.0, 0.0, 0.0])
         self.cmd_vel_run = np.array([0.0, 0.0, 0.0])
+        self.unsafe_orientation_streak = 0
+        self.orientation_warmup_remaining = 0
 
     def on_prepare_enter(
         self,
@@ -554,6 +556,8 @@ class AmpRunState(RobotControlState):
         self.max_vel = 0.0
         self.pre_cmd_vel_run = np.array([0.0, 0.0, 0.0])
         self.cmd_vel_run = np.array([0.0, 0.0, 0.0])
+        self.unsafe_orientation_streak = 0
+        self.orientation_warmup_remaining = 75
 
     def get_first_frame(self, ctx: BxiExample) -> Optional[MotorFrame]:
         return self._motor_frame(
@@ -566,7 +570,7 @@ class AmpRunState(RobotControlState):
         cmd_vel: np.ndarray,
     ) -> Optional[np.ndarray]:
         self.cmd_vel_run[:2] = 0.98 * self.pre_cmd_vel_run[:2] + 0.02 * cmd_vel[:2]
-        self.cmd_vel_run[2] = cmd_vel[2]
+        self.cmd_vel_run[2] = 0.85 * self.pre_cmd_vel_run[2] + 0.15 * cmd_vel[2]
         self.pre_cmd_vel_run = self.cmd_vel_run.copy()
         return self.cmd_vel_run
 
@@ -592,7 +596,14 @@ class AmpRunState(RobotControlState):
         return self._motor_frame(qpos, ctx.amp_run.kps, ctx.amp_run.kds)
 
     def on_update(self, ctx: BxiExample, dt: float) -> None:
-        if ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
+        if self.orientation_warmup_remaining > 0:
+            self.orientation_warmup_remaining -= 1
+            self.unsafe_orientation_streak = 0
+        elif ctx.is_orientation_unsafe(ctx.current_quat_xyzw):
+            self.unsafe_orientation_streak += 1
+        else:
+            self.unsafe_orientation_streak = 0
+        if self.unsafe_orientation_streak >= 3:
             print("check safe error, zero_torque!")
             ctx.request_state("zero_torque", trigger="safety")
             return

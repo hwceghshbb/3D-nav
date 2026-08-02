@@ -10,6 +10,7 @@
   <exec_depend>communication</exec_depend>
   <exec_depend>cv_bridge</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>bxi_octo_global_planner</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
   <exec_depend>nav2_costmap_2d</exec_depend>
   <exec_depend>nav2_lifecycle_manager</exec_depend>

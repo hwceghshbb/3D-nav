@@ -1,0 +1,56 @@
+initial_state: amp_run
+graph:
+  validate: true
+remote_events:
+  amp_run_event:
+    slot: btn_8
+    value: 1
+  zero_torque_event:
+    slot: btn_2
+    value: 1
+transition_profiles:
+  instant:
+    duration: 0.0
+    exit_behavior: none
+    enter_behavior: none
+  soft_switch:
+    duration: 0.02
+    exit_behavior: hold_last_motor
+    enter_behavior: hold_last_motor
+speed_profiles:
+  amp_run:
+    vx_scale: 1.0
+    vx_min: -2.0
+    vx_max: 3.5
+    vy_scale: 1.0
+    yaw_scale: 1.0
+states:
+  amp_run:
+    manifest:
+      label: 高速奔跑
+      index: 0
+      group: Track
+      icon: sprint
+      confirm: false
+      confirm_message: 400m跑道跑步测试
+    behavior: AmpRunState
+    speed_profile: amp_run
+    transitions:
+      on_event:
+        zero_torque_event:
+          to: zero_torque
+          transition: soft_switch
+  zero_torque:
+    manifest:
+      label: 零力矩
+      index: 1
+      group: Track
+      icon: do_not_disturb_on
+      confirm: false
+      confirm_message: ""
+    behavior: ZeroTorqueState
+    transitions:
+      on_event:
+        amp_run_event:
+          to: amp_run
+          transition: soft_switch

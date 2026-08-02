@@ -1,0 +1,18 @@
+<mujoco model="elf3_uniform_room">
+  <include file="elf3.xml"/>
+  <asset>
+    <material name="room_floor" rgba="0.62 0.62 0.62 1"/>
+    <material name="room_wall" rgba="0.72 0.72 0.72 1"/>
+    <material name="room_obstacle" rgba="0.68 0.68 0.68 1"/>
+  </asset>
+  <worldbody>
+    <geom name="nav_floor" type="plane" size="12 12 0.05" material="room_floor"/>
+    <geom name="wall_north" type="box" pos="0 6 1.5" size="6 0.08 1.5" material="room_wall"/>
+    <geom name="wall_south" type="box" pos="0 -6 1.5" size="6 0.08 1.5" material="room_wall"/>
+    <geom name="wall_east" type="box" pos="6 0 1.5" size="0.08 6 1.5" material="room_wall"/>
+    <geom name="wall_west" type="box" pos="-6 0 1.5" size="0.08 6 1.5" material="room_wall"/>
+    <geom name="block_a" type="box" pos="1.4 1.2 0.45" size="0.8 1.8 0.45" material="room_obstacle"/>
+    <geom name="block_b" type="box" pos="-1.8 -1.8 0.6" size="1.2 0.7 0.6" material="room_obstacle"/>
+    <geom name="block_c" type="box" pos="-3.3 2.6 0.35" size="0.6 1.3 0.35" material="room_obstacle"/>
+  </worldbody>
+</mujoco>

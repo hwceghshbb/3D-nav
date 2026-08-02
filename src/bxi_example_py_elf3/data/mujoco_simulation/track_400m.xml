@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<mujoco model="track_400m_compact">
+  <compiler angle="radian" meshdir="./meshes/"/>
+  <option timestep="0.002" gravity="0 0 -9.81"/>
+
+  <asset>
+    <texture type="skybox" builtin="gradient" rgb1="0.35 0.55 0.75" rgb2="0.02 0.04 0.06" width="512" height="3072"/>
+    <texture type="2d" name="grass_checker_400m" builtin="checker" rgb1="0.10 0.30 0.12" rgb2="0.07 0.22 0.09" width="256" height="256"/>
+    <material name="grass_400m" texture="grass_checker_400m" texuniform="true" texrepeat="45 45" reflectance="0.05"/>
+    <material name="track_red_400m" rgba="0.72 0.10 0.07 1" reflectance="0.03"/>
+    <material name="track_line_400m" rgba="0.96 0.96 0.88 1" reflectance="0.02"/>
+    <mesh name="track_400m_surface" file="track_400m_surface.obj" inertia="shell"/>
+    <mesh name="track_400m_lines" file="track_400m_lines.obj" inertia="shell"/>
+  </asset>
+
+  <worldbody>
+    <light name="sun" pos="0 -25 55" dir="0 0 -1" directional="true" diffuse="0.8 0.8 0.8"/>
+    <camera name="track_overview" pos="0 -70 48" xyaxes="1 0 0 0 0.58 0.82"/>
+    <camera name="start_line" pos="-14.768 -8 13" xyaxes="1 0 0 0 0.78 0.63"/>
+    <geom name="ground" type="plane" size="90 70 0.01" material="grass_400m" friction="0.8 0.02 0.01"/>
+
+    <!-- Smooth compact 400m-style visual track. The ground plane provides all foot contact. -->
+    <geom name="track_surface" type="mesh" mesh="track_400m_surface" material="track_red_400m" contype="0" conaffinity="0"/>
+    <geom name="track_lines" type="mesh" mesh="track_400m_lines" material="track_line_400m" contype="0" conaffinity="0"/>
+  </worldbody>
+</mujoco>

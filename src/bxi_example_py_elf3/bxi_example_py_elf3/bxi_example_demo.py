@@ -17,7 +17,7 @@ import os
 import math
 import json
 from collections import deque
-from std_msgs.msg import Header, String
+from std_msgs.msg import Bool, Header, String
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
 from ament_index_python.packages import get_package_share_directory
@@ -134,6 +134,8 @@ class BxiExample(HotReloadMixin, Node):
         self.omega = np.zeros(3, dtype=np.double)
         self.quat_xyzw = np.zeros(4, dtype=np.double)
         self.quat_wxyz = np.zeros(4, dtype=np.double)
+        self.quat_xyzw[3] = 1.0
+        self.quat_wxyz[0] = 1.0
 
         self.pos_last = np.zeros(dof_num, dtype=np.float32)
         self.kp_last = np.zeros(dof_num, dtype=np.float32)
@@ -156,9 +158,12 @@ class BxiExample(HotReloadMixin, Node):
         self.current_omega = np.zeros(3, dtype=np.double)
         self.current_quat_xyzw = np.zeros(4, dtype=np.double)
         self.current_quat_wxyz = np.zeros(4, dtype=np.double)
+        self.current_quat_xyzw[3] = 1.0
+        self.current_quat_wxyz[0] = 1.0
         self.raw_cmd_vel = np.zeros(3, dtype=np.float32)
         self.current_raw_cmd_vel = np.zeros(3, dtype=np.float32)
         self.current_cmd_vel = np.zeros(3, dtype=np.float32)
+        self.raw_cmd_vel[:] = self.initial_cmd_vel
 
         robot_states = build_robot_states(self.state_machine_config)
         self.robot_states = robot_states
@@ -189,6 +194,7 @@ class BxiExample(HotReloadMixin, Node):
         self.last_inference_frame_time = None
         self.inference_timeout_count = 0
         self.state_machine_info_elapsed = 0.0
+        self.run_status_elapsed = 0.0
         self.timer = self.create_timer(
             self.dt, self.timer_callback, callback_group=self.timer_callback_group_1
         )
@@ -225,6 +231,33 @@ class BxiExample(HotReloadMixin, Node):
 
         self.declare_parameter("/hot_reload", False)
         self.hot_reload_enabled = bool(self.get_parameter("/hot_reload").value)
+
+        self.declare_parameter("/initial_cmd_vel", [0.0, 0.0, 0.0])
+        initial_cmd_vel = self.get_parameter("/initial_cmd_vel").value
+        self.initial_cmd_vel = np.asarray(initial_cmd_vel, dtype=np.float32).reshape(3)
+
+        self.declare_parameter("/lock_initial_cmd_vel", False)
+        self.lock_initial_cmd_vel = bool(self.get_parameter("/lock_initial_cmd_vel").value)
+
+        self.declare_parameter("/use_sim_reset", False)
+        self.use_sim_reset = bool(self.get_parameter("/use_sim_reset").value)
+
+        self.declare_parameter("/initial_base_pose", [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0])
+        initial_base_pose = self.get_parameter("/initial_base_pose").value
+        self.initial_base_pose = np.asarray(initial_base_pose, dtype=np.float64).reshape(7)
+
+        self.declare_parameter("/wait_for_start_signal", False)
+        self.wait_for_start_signal = bool(
+            self.get_parameter("/wait_for_start_signal").value
+        )
+        self.declare_parameter("/start_signal_topic", "simulation/start_run")
+        self.start_signal_topic = (
+            self.get_parameter("/start_signal_topic")
+            .get_parameter_value()
+            .string_value
+        )
+        self.start_requested = not self.wait_for_start_signal
+        self.start_wait_logged = False
 
     def load_models(self):
         data_dir = os.path.join(
@@ -318,6 +351,9 @@ class BxiExample(HotReloadMixin, Node):
         self.joy_sub = self.create_subscription(
             bxiMsg.MotionCommands, "motion_commands", self.joy_callback, qos
         )
+        self.start_signal_sub = self.create_subscription(
+            Bool, self.start_signal_topic, self.start_signal_callback, 10
+        )
 
         self.rest_srv = self.create_client(
             bxiSrv.RobotReset, self.topic_prefix + "robot_reset"
@@ -336,11 +372,24 @@ class BxiExample(HotReloadMixin, Node):
         # ptyhon 与 rclpy 多线程不太友好，这里使用定时间+简易状态机运行a
         events = []
         if self.step == 0:
+            if self.use_sim_reset:
+                self.sim_robot_reset()
             self.robot_reset(1, False)  # first reset
             print("robot reset 1!")
             self.step = 1
             return
         elif self.step == 1 and self.loop_count >= (1.0 / self.dt):  # 延迟2s
+            if self.wait_for_start_signal and not self.start_requested:
+                if not self.start_wait_logged:
+                    print(
+                        f"waiting start signal on {self.start_signal_topic} "
+                        "(std_msgs/Bool true)..."
+                    )
+                    self.start_wait_logged = True
+                self.loop_count += 1
+                return
+            if self.use_sim_reset:
+                self.sim_robot_reset()
             self.robot_reset(2, True)  # first reset
             print("robot reset 2!")
             self.loop_count = 0
@@ -377,6 +426,7 @@ class BxiExample(HotReloadMixin, Node):
                 self.kd_last = kd
                 self.check_inference_frame_timeout()
                 self.send_to_motor(qpos, kp, kd)
+                self.print_run_status_if_due()
 
         self.loop_count += 1
         self.publish_state_machine_info_if_due(events)
@@ -446,17 +496,17 @@ class BxiExample(HotReloadMixin, Node):
         req.header.frame_id = robot_name
 
         base_pose = Pose()
-        base_pose.position.x = 0.0
-        base_pose.position.y = 0.0
-        base_pose.position.z = 1.0
-        base_pose.orientation.x = 0.0
-        base_pose.orientation.y = 0.0
-        base_pose.orientation.z = 0.0
-        base_pose.orientation.w = 1.0
+        base_pose.position.x = float(self.initial_base_pose[0])
+        base_pose.position.y = float(self.initial_base_pose[1])
+        base_pose.position.z = float(self.initial_base_pose[2])
+        base_pose.orientation.x = float(self.initial_base_pose[3])
+        base_pose.orientation.y = float(self.initial_base_pose[4])
+        base_pose.orientation.z = float(self.initial_base_pose[5])
+        base_pose.orientation.w = float(self.initial_base_pose[6])
 
         joint_state = JointState()
         joint_state.name = joint_name
-        joint_state.position = np.zeros(dof_num, dtype=np.float32).tolist()
+        joint_state.position = self.joint_nominal_pos.astype(np.float32).tolist()
         joint_state.velocity = np.zeros(dof_num, dtype=np.float32).tolist()
         joint_state.effort = np.zeros(dof_num, dtype=np.float32).tolist()
 
@@ -464,7 +514,7 @@ class BxiExample(HotReloadMixin, Node):
         req.joint_state = joint_state
 
         while not self.sim_rest_srv.wait_for_service(timeout_sec=1.0):
-            print("service not available, waiting again...")
+            print("simulation reset service not available, waiting again...")
 
         self.sim_rest_srv.call_async(req)
 
@@ -490,11 +540,12 @@ class BxiExample(HotReloadMixin, Node):
 
     def joy_callback(self, msg):
         with self.lock_in:
-            self.raw_cmd_vel[:] = (
-                msg.vel_des.x,
-                msg.vel_des.y,
-                msg.yawdot_des,
-            )
+            if not self.lock_initial_cmd_vel:
+                self.raw_cmd_vel[:] = (
+                    msg.vel_des.x,
+                    msg.vel_des.y,
+                    msg.yawdot_des,
+                )
             events = self.remote_event_adapter.extract_events(
                 msg, sync_only=self.step < 2
             )
@@ -502,6 +553,13 @@ class BxiExample(HotReloadMixin, Node):
 
         if self.step < 2:
             return
+
+    def start_signal_callback(self, msg):
+        if not bool(msg.data):
+            return
+        self.start_requested = True
+        if self.step < 2:
+            print("start signal received, releasing robot to run...")
 
     def imu_callback(self, msg):
         quat = msg.orientation
@@ -575,11 +633,23 @@ class BxiExample(HotReloadMixin, Node):
         )
 
     def is_orientation_unsafe(self, quat_xyzw):
+        quat_norm = np.linalg.norm(quat_xyzw)
+        if quat_norm < 1e-6 or not np.isfinite(quat_norm):
+            return False
         eu_ang = quaternion_to_euler_array(quat_xyzw)
         eu_ang[eu_ang > math.pi] -= 2 * math.pi
         return (np.abs(eu_ang[0]) > (math.pi / 3.0)) or (
             np.abs(eu_ang[1]) > (math.pi / 3.0)
         )
+
+    def print_run_status_if_due(self):
+        self.run_status_elapsed += self.dt
+        if self.run_status_elapsed < 1.0:
+            return
+        self.run_status_elapsed = 0.0
+        state_name = self.state_name_by_id.get(self.state, str(self.state))
+        cmd_vel = self.current_cmd_vel.tolist()
+        print(f"[RUN STATUS] state={state_name} cmd_vel={cmd_vel}")
 
     # --- 模型切换过渡逻辑 ---
     def preheat_model(self, model, with_cmd_vel=False, cmd_vel=None):

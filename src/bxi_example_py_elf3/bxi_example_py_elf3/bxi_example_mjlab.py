@@ -19,11 +19,17 @@ from collections import deque
 from std_msgs.msg import Header
 from geometry_msgs.msg import Pose
 from sensor_msgs.msg import JointState
+from ament_index_python.packages import get_package_share_directory
 
 import onnxruntime as ort
 import onnx
 import ast
 from scipy.spatial.transform import Rotation
+
+from bxi_example_py_elf3.inference.amp_depth import (
+    HumanoidGaitDepthPolicy,
+    HumanoidGaitOriginCameraPolicy,
+)
 
 robot_name = "elf3"
 
@@ -123,6 +129,30 @@ class BxiExample(Node):
         self.onnx_file = self.get_parameter('/onnx_file').get_parameter_value().string_value        
         print("onnx_file:", self.onnx_file)
 
+        package_share = get_package_share_directory("bxi_example_py_elf3")
+        self.declare_parameter("/policy_type", "normal")
+        self.policy_type = (
+            self.get_parameter("/policy_type").get_parameter_value().string_value
+        ).strip().lower()
+        self.declare_parameter(
+            "/depth_policy_file",
+            os.path.join(package_share, "data", "depth_policy", "lyp2", "dagger1.onnx"),
+        )
+        self.depth_policy_file = (
+            self.get_parameter("/depth_policy_file").get_parameter_value().string_value
+        )
+        self.declare_parameter(
+            "/depth_image_topic",
+            "/simulation/origin_depth/depth/image_raw",
+        )
+        self.depth_image_topic = (
+            self.get_parameter("/depth_image_topic").get_parameter_value().string_value
+        )
+        print("policy_type:", self.policy_type)
+        if self.policy_type != "normal":
+            print("depth_policy_file:", self.depth_policy_file)
+            print("depth_image_topic:", self.depth_image_topic)
+
         qos = QoSProfile(depth=1, durability=qos_profile_sensor_data.durability, reliability=qos_profile_sensor_data.reliability)
         
         self.act_pub = self.create_publisher(bxiMsg.ActuatorCmds, self.topic_prefix+'actuators_cmds', qos)  # CHANGE
@@ -133,45 +163,78 @@ class BxiExample(Node):
         self.imu_sub = self.create_subscription(sensor_msgs.msg.Imu, self.topic_prefix+'imu_data', self.imu_callback, qos)
         self.touch_sub = self.create_subscription(bxiMsg.TouchSensor, self.topic_prefix+'touch_sensor', self.touch_callback, qos)
         self.joy_sub = self.create_subscription(bxiMsg.MotionCommands, 'motion_commands', self.joy_callback, qos)
+        self.depth_sub = None
+        self.latest_depth_image = None
+        self.latest_depth_frame_id = None
+        self.depth_frame_counter = 0
+        self.warned_bad_depth_encoding = False
+        if self.policy_type != "normal":
+            self.depth_sub = self.create_subscription(
+                sensor_msgs.msg.Image,
+                self.depth_image_topic,
+                self.depth_image_callback,
+                qos,
+            )
 
         self.rest_srv = self.create_client(bxiSrv.RobotReset, self.topic_prefix+'robot_reset')
         self.sim_rest_srv = self.create_client(bxiSrv.SimulationReset, self.topic_prefix+'sim_reset')
         
         self.timer_callback_group_1 = MutuallyExclusiveCallbackGroup()
-        
-        model = onnx.load(self.onnx_file)
-        metadata = {}
-        for prop in model.metadata_props:
-            metadata[prop.key] = prop.value
-        # print(model.metadata_props)
-        
+
         self.num_action = dof_num
         self.num_obs = 96
-        
-        print(metadata)
-        self.joint_names = metadata["joint_names"]
-        self.joint_stiffness = np.array(ast.literal_eval(metadata["joint_stiffness"]), dtype=np.float32)
-        self.joint_damping = np.array(ast.literal_eval(metadata["joint_damping"]), dtype=np.float32)
-        self.action_scale = np.array(ast.literal_eval(metadata["action_scale"]), dtype=np.float32)
-        self.default_joint_pos = np.array(ast.literal_eval(metadata["default_joint_pos"]), dtype=np.float32)
-        # self.default_joint_pos[[7,13]] += 0.05
-        # exit()
+        self.depth_policy = None
+        if self.policy_type == "normal":
+            model = onnx.load(self.onnx_file)
+            metadata = {}
+            for prop in model.metadata_props:
+                metadata[prop.key] = prop.value
+            # print(model.metadata_props)
+
+            print(metadata)
+            self.joint_names = metadata["joint_names"]
+            self.joint_stiffness = np.array(ast.literal_eval(metadata["joint_stiffness"]), dtype=np.float32)
+            self.joint_damping = np.array(ast.literal_eval(metadata["joint_damping"]), dtype=np.float32)
+            self.action_scale = np.array(ast.literal_eval(metadata["action_scale"]), dtype=np.float32)
+            self.default_joint_pos = np.array(ast.literal_eval(metadata["default_joint_pos"]), dtype=np.float32)
+            # self.default_joint_pos[[7,13]] += 0.05
+            # exit()
+        elif self.policy_type in ("depth_origin", "origin_camera"):
+            self.depth_policy = HumanoidGaitOriginCameraPolicy(self.depth_policy_file)
+            self.num_obs = self.depth_policy.num_obs
+            self.joint_names = ",".join(joint_name)
+            self.joint_stiffness = self.depth_policy.kps.copy()
+            self.joint_damping = self.depth_policy.kds.copy()
+            self.action_scale = np.ones(self.num_action, dtype=np.float32)
+            self.default_joint_pos = self.depth_policy.default_dof_pos.copy()
+        elif self.policy_type in ("depth", "depth_walk"):
+            self.depth_policy = HumanoidGaitDepthPolicy(self.depth_policy_file)
+            self.num_obs = self.depth_policy.num_obs
+            self.joint_names = ",".join(joint_name)
+            self.joint_stiffness = self.depth_policy.kps.copy()
+            self.joint_damping = self.depth_policy.kds.copy()
+            self.action_scale = np.ones(self.num_action, dtype=np.float32)
+            self.default_joint_pos = self.depth_policy.default_dof_pos.copy()
+        else:
+            raise RuntimeError(f"unsupported policy_type: {self.policy_type}")
 
         self.lock_in = Lock()
         self.lock_ou = self.lock_in #Lock()
         self.qpos = np.zeros(self.num_action,dtype=np.double)
         self.qvel = np.zeros(self.num_action,dtype=np.double)
         self.omega = np.zeros(3,dtype=np.double)
-        self.quat = np.zeros(4,dtype=np.double)
+        self.quat = np.array([0.0, 0.0, 0.0, 1.0], dtype=np.double)
         
         self.target_q = np.zeros(self.num_action, dtype=np.double)
         self.action = np.zeros(self.num_action, dtype=np.double)
 
-        policy_input = np.zeros([1, self.num_obs], dtype=np.float32)
-        print("policy test")
+        if self.policy_type == "normal":
+            policy_input = np.zeros([1, self.num_obs], dtype=np.float32)
+            print("policy test")
 
-        self.initialize_onnx(self.onnx_file)
-        self.action[:] = self.inference_step(policy_input)
+            self.initialize_onnx(self.onnx_file)
+            self.action[:] = self.inference_step(policy_input)
+            self.action.fill(0.0)
 
         self.vx = 0.0
         self.vy = 0
@@ -182,6 +245,8 @@ class BxiExample(Node):
         self.dt = 0.02  # loop @50Hz
         self.inference_period = self.dt
         self.inference_timeout_tolerance = 0.001
+        if self.depth_policy is not None:
+            self.inference_timeout_tolerance = 0.005
         self.last_inference_frame_time = None
         self.inference_timeout_count = 0
         self.timer = self.create_timer(self.dt, self.timer_callback, callback_group=self.timer_callback_group_1)
@@ -264,10 +329,12 @@ class BxiExample(Node):
             
         elif self.step == 2:
             with self.lock_in:
-                q = self.qpos
-                dq = self.qvel
-                quat = self.quat
-                omega = self.omega
+                q = self.qpos.copy()
+                dq = self.qvel.copy()
+                quat = self.quat.copy()
+                omega = self.omega.copy()
+                depth_image = None if self.latest_depth_image is None else self.latest_depth_image.copy()
+                depth_frame_id = self.latest_depth_frame_id
                 
                 x_vel_cmd = self.vx
                 y_vel_cmd = self.vy
@@ -277,44 +344,69 @@ class BxiExample(Node):
                     
             obs = np.zeros([1, self.num_obs], dtype=np.float32)
             
+            quat_norm = np.linalg.norm(quat)
+            if not np.isfinite(quat_norm) or quat_norm < 1.0e-6:
+                print("check safe error, stopping actuator commands!")
+                self.publish_safe_stop()
+                self.step = 3
+                return
+            quat = quat / quat_norm
             eu_ang = quaternion_to_euler_array(quat)
             eu_ang[eu_ang > math.pi] -= 2 * math.pi
-            
             projected_gravity = projected_gravity_from_quat(quat, np.array([0, 0, -1]))
-            
-            #check safe
-            if (np.abs(eu_ang[0]) > (math.pi/3.0)) or (np.abs(eu_ang[1]) > (math.pi/3.0)):
-                print("check safe error, exit!")
-                os._exit()
 
-            obs[0, :3] = omega
-            obs[0, 3:6] = projected_gravity
-            obs[0, 6:6+self.num_action] = (q-self.default_joint_pos)
-            obs[0, 6+(self.num_action*1):6+(self.num_action*2)] = dq
-            obs[0, 6+(self.num_action*2):6+(self.num_action*3)] = self.action
+            if (np.abs(eu_ang[0]) > (math.pi/3.0)) or (
+                np.abs(eu_ang[1]) > (math.pi/3.0)):
+                print("check safe error, stopping actuator commands!")
+                self.publish_safe_stop()
+                self.step = 3
+                return
 
-            obs[0, -3] = x_vel_cmd 
-            obs[0, -2] = y_vel_cmd
-            obs[0, -1] = yaw_vel_cmd
-            
-            # obs = np.clip(obs, -env_cfg.normalization.clip_observations, env_cfg.normalization.clip_observations)
+            if self.depth_policy is None:
+                obs[0, :3] = omega
+                obs[0, 3:6] = projected_gravity
+                obs[0, 6:6+self.num_action] = (q-self.default_joint_pos)
+                obs[0, 6+(self.num_action*1):6+(self.num_action*2)] = dq
+                obs[0, 6+(self.num_action*2):6+(self.num_action*3)] = self.action
 
-            # self.hist_obs.append(obs)
-            # self.hist_obs.popleft()
+                obs[0, -3] = x_vel_cmd
+                obs[0, -2] = y_vel_cmd
+                obs[0, -1] = yaw_vel_cmd
 
-            policy_input = np.zeros([1, self.num_obs], dtype=np.float32)
+                # obs = np.clip(obs, -env_cfg.normalization.clip_observations, env_cfg.normalization.clip_observations)
 
-            policy_input = obs
-            
-            self.action[:] = self.inference_step(policy_input)
-            self.check_inference_frame_timeout()
-            # self.action = np.clip(self.action, -env_cfg.normalization.clip_actions, env_cfg.normalization.clip_actions)
-            self.target_q = self.action * self.action_scale
-            qpos = self.default_joint_pos.copy()
-            qpos[:] += self.target_q[:]
-            
-            kp = self.joint_stiffness #* 0.9
-            kd = self.joint_damping #* 0.2
+                # self.hist_obs.append(obs)
+                # self.hist_obs.popleft()
+
+                policy_input = np.zeros([1, self.num_obs], dtype=np.float32)
+
+                policy_input = obs
+
+                self.action[:] = self.inference_step(policy_input)
+                self.check_inference_frame_timeout()
+                # self.action = np.clip(self.action, -env_cfg.normalization.clip_actions, env_cfg.normalization.clip_actions)
+                self.target_q = self.action * self.action_scale
+                qpos = self.default_joint_pos.copy()
+                qpos[:] += self.target_q[:]
+
+                kp = self.joint_stiffness #* 0.9
+                kd = self.joint_damping #* 0.2
+            else:
+                quat_wxyz = np.array([quat[3], quat[0], quat[1], quat[2]], dtype=np.float32)
+                cmd_vel = np.array([x_vel_cmd, y_vel_cmd, yaw_vel_cmd], dtype=np.float32)
+                qpos = self.depth_policy.inference_step(
+                    q,
+                    dq,
+                    quat_wxyz,
+                    omega,
+                    cmd_vel,
+                    depth_image,
+                    depth_frame_id=depth_frame_id,
+                )
+                self.action[:] = self.depth_policy.action
+                self.check_inference_frame_timeout()
+                kp = self.depth_policy.kps
+                kd = self.depth_policy.kds
             
             msg = bxiMsg.ActuatorCmds()
             msg.header.frame_id = robot_name
@@ -329,6 +421,18 @@ class BxiExample(Node):
             self.last_action=self.action.copy()
 
         self.loop_count += 1
+
+    def publish_safe_stop(self):
+        msg = bxiMsg.ActuatorCmds()
+        msg.header.frame_id = robot_name
+        msg.header.stamp = self.get_clock().now().to_msg()
+        msg.actuators_name = joint_name
+        msg.pos = self.default_joint_pos.tolist()
+        msg.vel = np.zeros(dof_num, dtype=np.float32).tolist()
+        msg.torque = np.zeros(dof_num, dtype=np.float32).tolist()
+        msg.kp = np.zeros(dof_num, dtype=np.float32).tolist()
+        msg.kd = np.zeros(dof_num, dtype=np.float32).tolist()
+        self.act_pub.publish(msg)
 
     def robot_reset(self, reset_step, release):
         req = bxiSrv.RobotReset.Request()
@@ -394,6 +498,15 @@ class BxiExample(Node):
             self.vx = np.clip(self.vx, -2.0, 3.0)
             self.vy = msg.vel_des.y * 2
             self.dyaw = msg.yawdot_des * 2
+
+    def depth_image_callback(self, msg):
+        depth = self.image_to_depth_array(msg)
+        if depth is None:
+            return
+        with self.lock_in:
+            self.depth_frame_counter += 1
+            self.latest_depth_frame_id = self.depth_frame_counter
+            self.latest_depth_image = depth
         
     def imu_callback(self, msg):
         quat = msg.orientation
@@ -416,6 +529,27 @@ class BxiExample(Node):
     # ---------------------------------------------------------------------------- #
     #                                     工具类函数                                    #
     # ---------------------------------------------------------------------------- #
+    def image_to_depth_array(self, msg):
+        if msg.encoding in ("32FC1", "32FC"):
+            dtype = np.float32
+            scale = 1.0
+        elif msg.encoding in ("16UC1", "mono16"):
+            dtype = np.uint16
+            scale = 0.001
+        else:
+            if not self.warned_bad_depth_encoding:
+                print(f"unsupported depth image encoding: {msg.encoding}")
+                self.warned_bad_depth_encoding = True
+            return None
+
+        channels = 1
+        row_values = msg.step // np.dtype(dtype).itemsize
+        array = np.frombuffer(msg.data, dtype=dtype)
+        if array.size < row_values * msg.height:
+            return None
+        array = array.reshape(msg.height, row_values)[:, : msg.width * channels]
+        return (array.astype(np.float32) * scale).reshape(msg.height, msg.width)
+
     def reset_inference_timeout_monitor(self):
         self.last_inference_frame_time = None
         self.inference_timeout_count = 0

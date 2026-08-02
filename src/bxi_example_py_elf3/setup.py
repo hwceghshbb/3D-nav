@@ -71,6 +71,14 @@ setup(
         'console_scripts': [
             'bxi_example_py_elf3_mjlab = bxi_example_py_elf3.bxi_example_mjlab:main',
             'bxi_example_py_elf3_demo = bxi_example_py_elf3.bxi_example_demo:main',
+            'front_line_camera_publisher = bxi_example_py_elf3.front_line_camera_publisher:main',
+            'front_line_camera_viewer = bxi_example_py_elf3.front_line_camera_viewer:main',
+            'line_follow_controller = bxi_example_py_elf3.line_follow_controller:main',
+            'ideal_line_publisher = bxi_example_py_elf3.ideal_line_publisher:main',
+            'fast_line_detector = bxi_example_py_elf3.fast_line_detector:main',
+            'real_line_follow_controller = bxi_example_py_elf3.real_line_follow_controller:main',
+            'start_run_keyboard = bxi_example_py_elf3.start_run_keyboard:main',
+            'track_progress_evaluator = bxi_example_py_elf3.track_progress_evaluator:main',
         ],
     },
 )

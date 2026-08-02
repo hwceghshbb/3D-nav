@@ -59,6 +59,10 @@ source /opt/bxi/bxi_ros2_pkg/setup.bash
 2. In bxi_rl_controller_ros2_example directory, run `bash build.sh` to compile all sources in `./src` director. When compilation is done，run `source ./install/setup.bash` to activate the environment of current packages.        
 3. Run whole body control policy：
 `ros2 launch bxi_example_py_elf3 example_launch_demo.py` : start simulation + controller program(learning based)    
+   Run the 400m track environment:    
+   `ros2 launch bxi_example_py_elf3 elf3_400m_track_sim.launch.py` : start Mujoco with only the 400m track simulation    
+   `ros2 launch bxi_example_py_elf3 example_launch_400m_track.py` : start the 400m track simulation + controller program    
+   `ros2 launch bxi_example_py_elf3 example_launch_400m_run.py` : start the 400m track simulation + standalone AMP running policy    
 4. Bring up keyboard control node:     
 `ros2 launch remote_controller remote_conroller_launch_keyboard.py'    
 
@@ -98,3 +102,59 @@ In addition to communication timeout protection, the hardware node also includes
 Large-sized robots may pose risks. Check instructions carefully before operation!     
 All control programs must go through simulation before deploying on robot hardwares.     
 Press the stop button immediately if any abnormality occurs!      
+
+## PowerA + MuJoCo 控制数据采集
+
+在 `trackRL` 环境中运行：
+
+```bash
+cd /home/hwc/code/bxi_rl_controller_ros2_example
+conda activate trackRL
+python3 scripts/collect_powera_mujoco_data.py \
+  --track straight_50m \
+  --output /home/hwc/code/RL/data/powera_mujoco/straight_001.npz
+```
+
+控制按键：
+
+```text
+A：开始采集
+B：保存并退出
+X：暂停 / 继续
+Y：速度增加 0.5 m/s
+```
+
+摇杆映射：左摇杆上下为 `x/vx`，左摇杆左右为 `y/vy`，右摇杆左右为 `yaw`。数据集保存 MuJoCo 世界画面、头部相机画面、原始摇杆值、归一化动作、速度命令、机器人状态和赛道元数据。
+
+当前 ELF3 AMP 跑步策略的下层接口是 `vx + yaw_rate`，因此 `vy` 会写入数据集但不会作用于该 MuJoCo 下层策略；如果要真实执行横向速度，需要替换或扩展 runner policy 的 `cmd_vel` 接口。
+
+## 高速高频视觉巡线
+
+新增检测器：
+
+```text
+src/bxi_example_py_elf3/bxi_example_py_elf3/fast_line_detector.py
+```
+
+核心方法：
+
+- HSV 红色赛道掩膜，使用小核形态学，避免大核造成延迟；
+- 在 ROI 内进行多行扫描，不依赖单个轮廓；
+- 对每一行取连续赛道区域中心，使用二次曲线拟合中心线；
+- 使用前视点误差 + 中心线方向误差计算控制量；
+- 用上一帧曲线速度预测当前帧，限制跳变；
+- 短时丢线保持预测结果，置信度下降时限制控制幅度；
+- 输出 `control_error`、`offset_norm`、`heading_error`、`confidence` 和调试点。
+
+检测器是纯 Python/OpenCV 模块，不依赖 ROS：
+
+```python
+from bxi_example_py_elf3.fast_line_detector import FastLineDetector
+
+detector = FastLineDetector()
+result = detector.detect(bgr_image)
+yaw_error = result["control_error"]
+confidence = result["confidence"]
+```
+
+建议在高速机器人上使用 `160x96` 或 `320x192` 输入，控制线程保持 `30--60 Hz`；不要在控制回调里做 UFLD 大模型推理，先由独立视觉线程输出最新结果。
