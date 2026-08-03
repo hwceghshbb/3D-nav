@@ -20,3 +20,4 @@ MUJOCO_LOG.TXT
 src/http_motion_bridge/
 rosbag2_*/
 *.build.lock
+src/bxi_example_nav3d/third_party/OctoPlanner3D-ROS2/octomap/pcd_files/
