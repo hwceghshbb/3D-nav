@@ -276,7 +276,7 @@ def generate_launch_description():
             DeclareLaunchArgument("scan_body_offset", default_value="0.10"),
             DeclareLaunchArgument("scan_inflation_z_up", default_value="0.05"),
             DeclareLaunchArgument("scan_inflation_z_down", default_value="0.0"),
-            DeclareLaunchArgument("scan_collision_clearance", default_value="0.22"),
+            DeclareLaunchArgument("scan_collision_clearance", default_value="0.3"),
             DeclareLaunchArgument("scan_planning_horizon", default_value="2.0"),
             DeclareLaunchArgument("scan_min_waypoint_window_size", default_value="4"),
             DeclareLaunchArgument("scan_waypoint_pass_through_speed_scale", default_value="0.7"),
