@@ -1,9 +1,10 @@
-import struct
+from array import array as byte_array
 
+import numpy as np
 import rclpy
 from rcl_interfaces.msg import ParameterType, ParameterValue
 from rclpy.node import Node
-from rclpy.qos import QoSProfile, ReliabilityPolicy
+from rclpy.qos import QoSProfile, ReliabilityPolicy, qos_profile_sensor_data
 from sensor_msgs.msg import CameraInfo, Image, PointCloud2, PointField
 
 
@@ -21,20 +22,26 @@ class DepthToPointCloud(Node):
         self.declare_parameter("invert_x", False)
         self.declare_parameter("invert_y", False)
         self.info = None
-        qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE)
+        cloud_qos = QoSProfile(depth=5, reliability=ReliabilityPolicy.RELIABLE)
         self.publisher = self.create_publisher(
-            PointCloud2, self.get_parameter("pointcloud_topic").value, qos
+            PointCloud2, self.get_parameter("pointcloud_topic").value, cloud_qos
         )
         self.alias_publishers = [
-            self.create_publisher(PointCloud2, topic, qos)
+            self.create_publisher(PointCloud2, topic, cloud_qos)
             for topic in self.get_parameter("pointcloud_topic_aliases").value
             if topic
         ]
         self.create_subscription(
-            CameraInfo, self.get_parameter("camera_info_topic").value, self.info_callback, qos
+            CameraInfo,
+            self.get_parameter("camera_info_topic").value,
+            self.info_callback,
+            qos_profile_sensor_data,
         )
         self.create_subscription(
-            Image, self.get_parameter("depth_topic").value, self.depth_callback, qos
+            Image,
+            self.get_parameter("depth_topic").value,
+            self.depth_callback,
+            qos_profile_sensor_data,
         )
 
     def info_callback(self, msg):
@@ -48,39 +55,42 @@ class DepthToPointCloud(Node):
         invert_y = bool(self.get_parameter("invert_y").value)
         fx, fy, cx, cy = self.info.k[0], self.info.k[4], self.info.k[2], self.info.k[5]
         is_float = msg.encoding == "32FC1"
-        bytes_per_pixel = 4 if is_float else 2
-        points = bytearray()
-        for v in range(0, msg.height, stride):
-            for u in range(0, msg.width, stride):
-                offset = v * msg.step + u * bytes_per_pixel
-                raw = msg.data[offset:offset + bytes_per_pixel]
-                if len(raw) != bytes_per_pixel:
-                    continue
-                depth = struct.unpack_from("<f" if is_float else "<H", raw)[0]
-                z = depth if is_float else depth * 0.001
-                if z <= 0.15 or z > 12.0:
-                    continue
-                x = (u - cx) * z / fx
-                y = (v - cy) * z / fy
-                if invert_x:
-                    x = -x
-                if invert_y:
-                    y = -y
-                points.extend(struct.pack("<fff", x, y, z))
+        dtype = np.float32 if is_float else np.uint16
+        row_values = msg.step // np.dtype(dtype).itemsize
+        depth_rows = np.frombuffer(msg.data, dtype=dtype).reshape(
+            msg.height, row_values
+        )
+        z = depth_rows[::stride, : msg.width : stride].astype(np.float32)
+        if not is_float:
+            z *= 0.001
+
+        u = np.arange(0, msg.width, stride, dtype=np.float32)
+        v = np.arange(0, msg.height, stride, dtype=np.float32)
+        x = (u[np.newaxis, :] - cx) * z / fx
+        y = (v[:, np.newaxis] - cy) * z / fy
+        if invert_x:
+            x *= -1.0
+        if invert_y:
+            y *= -1.0
+        valid = np.isfinite(z) & (z > 0.15) & (z <= 12.0)
+        points = np.column_stack((x[valid], y[valid], z[valid])).astype(
+            np.float32, copy=False
+        )
+        point_bytes = points.nbytes
         cloud = PointCloud2()
         cloud.header = msg.header
         cloud.height = 1
-        cloud.width = len(points) // 12
+        cloud.width = points.shape[0]
         cloud.is_dense = False
         cloud.is_bigendian = False
         cloud.point_step = 12
-        cloud.row_step = len(points)
+        cloud.row_step = point_bytes
         cloud.fields = [
             PointField(name="x", offset=0, datatype=PointField.FLOAT32, count=1),
             PointField(name="y", offset=4, datatype=PointField.FLOAT32, count=1),
             PointField(name="z", offset=8, datatype=PointField.FLOAT32, count=1),
         ]
-        cloud.data = points
+        cloud.data = byte_array("B", points.tobytes())
         self.publisher.publish(cloud)
         for publisher in self.alias_publishers:
             publisher.publish(cloud)

@@ -5,7 +5,7 @@ from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
-from launch.substitutions import LaunchConfiguration
+from launch.substitutions import LaunchConfiguration, PythonExpression
 from launch_ros.actions import Node
 from launch_ros.parameter_descriptions import ParameterValue
 
@@ -165,7 +165,7 @@ def generate_launch_description():
         "grid_map.obstacles_inflation_z_down": ParameterValue(
             LaunchConfiguration("scan_inflation_z_down"), value_type=float
         ),
-        "grid_map.frame_id": "world",
+        "grid_map.frame_id": LaunchConfiguration("global_frame"),
         "grid_map.sliding_map_frame_id": "sliding_map",
         "grid_map.ground_height": 0.0,
         "grid_map.ground_filter_height": 0.25,
@@ -214,6 +214,11 @@ def generate_launch_description():
     return LaunchDescription(
         [
             DeclareLaunchArgument("start_simulation", default_value="true"),
+            DeclareLaunchArgument("start_simulated_cameras", default_value="true"),
+            DeclareLaunchArgument("publish_simulated_camera_pose", default_value="true"),
+            DeclareLaunchArgument(
+                "require_localization_valid", default_value="false"
+            ),
             DeclareLaunchArgument("start_controller", default_value="true"),
             DeclareLaunchArgument("start_scan_planner", default_value="true"),
             DeclareLaunchArgument("start_octo_global_planner", default_value="true"),
@@ -222,6 +227,11 @@ def generate_launch_description():
             DeclareLaunchArgument("model_file", default_value=model_file),
             DeclareLaunchArgument("state_machine_config", default_value=state_machine_config),
             DeclareLaunchArgument("nav_camera_name", default_value="head_depth_camera"),
+            DeclareLaunchArgument(
+                "body_pose_topic",
+                default_value="/simulation/base_footprint/pose",
+            ),
+            DeclareLaunchArgument("global_frame", default_value="world"),
             DeclareLaunchArgument(
                 "nav_camera_output_prefix",
                 default_value="/simulation/head_depth_camera/",
@@ -243,6 +253,11 @@ def generate_launch_description():
             DeclareLaunchArgument("body_camera_height", default_value="36"),
             DeclareLaunchArgument("camera_width", default_value="640"),
             DeclareLaunchArgument("camera_height", default_value="480"),
+            DeclareLaunchArgument("sim_camera_publish_color", default_value="false"),
+            DeclareLaunchArgument("sim_camera_publish_hz", default_value="30.0"),
+            DeclareLaunchArgument(
+                "sim_camera_align_depth_to_color", default_value="false"
+            ),
             DeclareLaunchArgument("camera_fx", default_value="261.9140402566251"),
             DeclareLaunchArgument("camera_fy", default_value="261.9140402566251"),
             DeclareLaunchArgument("camera_cx", default_value="320.0"),
@@ -341,15 +356,33 @@ def generate_launch_description():
             ),
             Node(
                 package="bxi_scan_nav",
+                executable="camera_frame_trigger",
+                name="camera_frame_trigger",
+                output="screen",
+                condition=IfCondition(LaunchConfiguration("start_simulated_cameras")),
+                parameters=[
+                    {
+                        "topic": "/simulation/rgbd_frame_trigger",
+                        "publish_hz": ParameterValue(
+                            LaunchConfiguration("sim_camera_publish_hz"),
+                            value_type=float,
+                        ),
+                    }
+                ],
+            ),
+            Node(
+                package="bxi_scan_nav",
                 executable="rgbd_camera_publisher",
                 name="nav_rgbd_camera_publisher",
                 output="screen",
+                condition=IfCondition(LaunchConfiguration("start_simulated_cameras")),
                 parameters=[
                     {
                         "model_file": LaunchConfiguration("model_file"),
                         "camera_name": LaunchConfiguration("nav_camera_name"),
                         "output_prefix": LaunchConfiguration("nav_camera_output_prefix"),
                         "frame_id": LaunchConfiguration("nav_camera_frame_id"),
+                        "color_frame_id": "head_depth_camera_color_optical_frame",
                         "hidden_body_names": ["torso_link"],
                         "width": ParameterValue(
                             LaunchConfiguration("camera_width"), value_type=int
@@ -357,9 +390,18 @@ def generate_launch_description():
                         "height": ParameterValue(
                             LaunchConfiguration("camera_height"), value_type=int
                         ),
-                        "publish_hz": 15.0,
-                        "publish_color": False,
+                        "publish_hz": ParameterValue(
+                            LaunchConfiguration("sim_camera_publish_hz"), value_type=float
+                        ),
+                        "publish_color": ParameterValue(
+                            LaunchConfiguration("sim_camera_publish_color"), value_type=bool
+                        ),
                         "publish_raw_depth": False,
+                        "trigger_topic": "/simulation/rgbd_frame_trigger",
+                        "align_depth_to_color": ParameterValue(
+                            LaunchConfiguration("sim_camera_align_depth_to_color"),
+                            value_type=bool,
+                        ),
                     }
                 ],
                 emulate_tty=True,
@@ -369,13 +411,24 @@ def generate_launch_description():
                 executable="rgbd_camera_publisher",
                 name="body_depth_camera_publisher",
                 output="screen",
-                condition=IfCondition(LaunchConfiguration("start_body_depth_camera")),
+                condition=IfCondition(
+                    PythonExpression(
+                        [
+                            "'",
+                            LaunchConfiguration("start_simulated_cameras"),
+                            "' == 'true' and '",
+                            LaunchConfiguration("start_body_depth_camera"),
+                            "' == 'true'",
+                        ]
+                    )
+                ),
                 parameters=[
                     {
                         "model_file": LaunchConfiguration("model_file"),
                         "camera_name": "body_depth_camera",
                         "output_prefix": "/simulation/body_depth_camera/",
                         "frame_id": "body_depth_camera_depth_optical_frame",
+                        "color_frame_id": "body_depth_camera_color_optical_frame",
                         "hidden_body_names": ["torso_link"],
                         "width": ParameterValue(
                             LaunchConfiguration("body_camera_width"), value_type=int
@@ -383,9 +436,18 @@ def generate_launch_description():
                         "height": ParameterValue(
                             LaunchConfiguration("body_camera_height"), value_type=int
                         ),
-                        "publish_hz": 20.0,
-                        "publish_color": False,
+                        "publish_hz": ParameterValue(
+                            LaunchConfiguration("sim_camera_publish_hz"), value_type=float
+                        ),
+                        "publish_color": ParameterValue(
+                            LaunchConfiguration("sim_camera_publish_color"), value_type=bool
+                        ),
                         "publish_raw_depth": False,
+                        "trigger_topic": "/simulation/rgbd_frame_trigger",
+                        "align_depth_to_color": ParameterValue(
+                            LaunchConfiguration("sim_camera_align_depth_to_color"),
+                            value_type=bool,
+                        ),
                     }
                 ],
                 emulate_tty=True,
@@ -395,6 +457,17 @@ def generate_launch_description():
                 executable="d435i_pose_publisher",
                 name="nav_camera_pose_publisher",
                 output="screen",
+                condition=IfCondition(
+                    PythonExpression(
+                        [
+                            "'",
+                            LaunchConfiguration("start_simulated_cameras"),
+                            "' == 'true' and '",
+                            LaunchConfiguration("publish_simulated_camera_pose"),
+                            "' == 'true'",
+                        ]
+                    )
+                ),
                 parameters=[
                     nav_config,
                     {
@@ -404,6 +477,10 @@ def generate_launch_description():
                         "base_footprint_z_offset": -0.3,
                         "sensor_pose_topic": LaunchConfiguration("nav_camera_pose_topic"),
                         "sensor_frame_id": LaunchConfiguration("nav_camera_frame_id"),
+                        "publish_tf": ParameterValue(
+                            LaunchConfiguration("publish_simulated_camera_pose"),
+                            value_type=bool,
+                        ),
                     },
                 ],
                 emulate_tty=True,
@@ -418,8 +495,8 @@ def generate_launch_description():
                     {
                         "clicked_point_topic": "/clicked_point",
                         "goal_topic": "/move_base_simple/goal",
-                        "odom_topic": "/simulation/base_footprint/pose",
-                        "target_frame": "world",
+                        "odom_topic": LaunchConfiguration("body_pose_topic"),
+                        "target_frame": LaunchConfiguration("global_frame"),
                         "snap_to_tomogram": False,
                         "zero_floor_epsilon": 0.06,
                         "reject_on_tf_failure": False,
@@ -435,7 +512,7 @@ def generate_launch_description():
                 condition=IfCondition(LaunchConfiguration("start_octo_global_planner")),
                 parameters=[
                     {
-                        "frame_id": "world",
+                        "frame_id": LaunchConfiguration("global_frame"),
                         "input_pcd": LaunchConfiguration("input_pcd"),
                         "output_bt": "/tmp/bxi_octo_global_map.bt",
                         "cloud_scale": ParameterValue(
@@ -488,7 +565,7 @@ def generate_launch_description():
                             LaunchConfiguration("octo_clearance_cost_weight"),
                             value_type=float,
                         ),
-                        "odom_topic": "/simulation/base_footprint/pose",
+                        "odom_topic": LaunchConfiguration("body_pose_topic"),
                         "goal_topic": "/move_base_simple/goal",
                         "path_topic": "/initial_path",
                         "debug_path_topic": "/octo_global_path",
@@ -541,7 +618,7 @@ def generate_launch_description():
                 condition=IfCondition(LaunchConfiguration("start_scan_planner")),
                 parameters=[planner_yaml, planner_overrides],
                 remappings=[
-                    ("body_pose", "/simulation/base_footprint/pose"),
+                    ("body_pose", LaunchConfiguration("body_pose_topic")),
                     ("sensor_pose", LaunchConfiguration("nav_camera_pose_topic")),
                     ("depth", LaunchConfiguration("nav_depth_topic")),
                     ("initial_path", "/initial_path"),
@@ -556,8 +633,8 @@ def generate_launch_description():
                 condition=IfCondition(LaunchConfiguration("start_scan_planner")),
                 parameters=[controllers_yaml, controller_overrides],
                 remappings=[
-                    ("body_pose", "/simulation/base_footprint/pose"),
-                    ("cmd_vel", "/scan_planner/cmd_vel"),
+                    ("body_pose", LaunchConfiguration("body_pose_topic")),
+                    ("cmd_vel", "/cmd_vel"),
                     ("planning/bspline", "/planning/bspline"),
                 ],
                 emulate_tty=True,
@@ -572,7 +649,7 @@ def generate_launch_description():
                     {
                         "bspline_topic": "/planning/bspline",
                         "path_topic": "/planning/bspline_path",
-                        "frame_id": "world",
+                        "frame_id": LaunchConfiguration("global_frame"),
                         "sample_dt": 0.05,
                     }
                 ],
@@ -595,6 +672,10 @@ def generate_launch_description():
                         ),
                         "max_yawdot": ParameterValue(
                             LaunchConfiguration("scan_max_vyaw"), value_type=float
+                        ),
+                        "require_localization_valid": ParameterValue(
+                            LaunchConfiguration("require_localization_valid"),
+                            value_type=bool,
                         ),
                     },
                 ],

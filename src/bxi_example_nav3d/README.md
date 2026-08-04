@@ -14,6 +14,8 @@ It intentionally keeps the upstream ROS packages as separate packages so
 - `bspline_opt`: B-spline trajectory optimization.
 - `traj_utils`: trajectory message helpers and visualization utilities.
 - `scan_planner_msgs`: SCAN planner message definitions.
+- `bxi_cuvslam_localization`: head RGB-D cuVSLAM mapping/relocalization,
+  input checks, map-frame anchoring, and guarded `/nav/odom` output.
 
 The top-level ELF3 control framework remains in `src/bxi_example_py_elf3`.
 Navigation talks to it through ROS topics, especially `motion_commands`.

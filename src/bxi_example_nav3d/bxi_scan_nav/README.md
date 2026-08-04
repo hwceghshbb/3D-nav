@@ -68,6 +68,25 @@ commands are the only source of `motion_commands`:
 ros2 launch bxi_scan_nav elf3_rtab_mapping_keyboard.launch.py
 ```
 
+For the PowerA joystick and head-camera cuVSLAM odometry, use:
+
+```bash
+ros2 launch bxi_scan_nav elf3_rtab_mapping_joystick.launch.py \
+  database_path:=$PWD/maps/elf3_features_rtabmap_v2.db \
+  delete_db_on_start:=true
+```
+
+The simulation mapping profile uses `424x240 @ 30 Hz` so RGB-D odometry can
+run in real time. The left stick controls forward/lateral motion, axis 6
+controls yaw, A selects the normal policy, B requests recovery, and Y selects
+the depth/stair policy. During this RTAB mapping launch the cuVSLAM SLAM
+backend is disabled deliberately; RTAB-Map owns loop closure and the saved
+database is the localization map.
+
+The cuVSLAM mapping process starts 10 seconds after launch so the controller
+can finish both MuJoCo reset steps. Wait for `Head RGB-D input ready=True`
+before moving the robot.
+
 Keyboard controls:
 
 - `w/s`: latch forward/backward velocity
@@ -120,7 +139,7 @@ are the simulated camera streams. The depth image is `32FC1` in meters.
 `/scan_planner/local_cloud` is generated from depth only; no lidar topic is
 used. `/scan_planner/odom` and `/scan_planner/depth_cloud` are the stable
 planner-facing topics.
-`/scan_planner/cmd_vel` is converted back to BXI `MotionCommands` on
+`/cmd_vel` is converted back to BXI `MotionCommands` on
 `motion_commands`.
 
 For SCAN-Planner, `/simulation/d435i/depth/pose` is published from

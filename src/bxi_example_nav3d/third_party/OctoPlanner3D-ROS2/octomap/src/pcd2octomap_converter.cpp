@@ -8,6 +8,7 @@
 
 #include <pcl/io/pcd_io.h>
 #include <pcl/io/ply_io.h>
+#include <pcl/common/common.h>
 
 namespace pcd2octomap
 {
@@ -102,7 +103,13 @@ bool Pcd2OctomapConverter::loadPointCloud()
     cloud_->height = 1;
   }
 
-  std::cout << "Loaded " << cloud_->size() << " points." << std::endl;
+  pcl::PointXYZ min_point;
+  pcl::PointXYZ max_point;
+  pcl::getMinMax3D(*cloud_, min_point, max_point);
+  std::cout << "Loaded " << cloud_->size() << " points. bounds=[("
+            << min_point.x << ", " << min_point.y << ", " << min_point.z
+            << ") .. (" << max_point.x << ", " << max_point.y << ", "
+            << max_point.z << ")]" << std::endl;
   return true;
 }
 

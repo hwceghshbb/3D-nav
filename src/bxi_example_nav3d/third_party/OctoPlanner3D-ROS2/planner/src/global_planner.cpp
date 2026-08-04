@@ -145,13 +145,27 @@ namespace global_planner
         if (!(start == start_raw)) 
         {
             const auto p = gridToWorld(start);
-            printf("GlobalPlanner::startPlan() Start snapped to free cell: [%.2f, %.2f, %.2f] \n",p.x(), p.y(), p.z());
+            const double snap_distance = std::sqrt(
+                std::pow(p.x() - start_point_.x, 2.0) +
+                std::pow(p.y() - start_point_.y, 2.0) +
+                std::pow(p.z() - start_point_.z, 2.0));
+            printf(
+                "GlobalPlanner::startPlan() Start snapped to free cell: "
+                "[%.2f, %.2f, %.2f], distance=%.2fm \n",
+                p.x(), p.y(), p.z(), snap_distance);
         }
 
         if (!(goal == goal_raw))
         {
             const auto p = gridToWorld(goal);
-            printf("GlobalPlanner::startPlan() Goal snapped to free cell: [%.2f, %.2f, %.2f] \n",p.x(), p.y(), p.z());
+            const double snap_distance = std::sqrt(
+                std::pow(p.x() - goal_point_.x, 2.0) +
+                std::pow(p.y() - goal_point_.y, 2.0) +
+                std::pow(p.z() - goal_point_.z, 2.0));
+            printf(
+                "GlobalPlanner::startPlan() Goal snapped to free cell: "
+                "[%.2f, %.2f, %.2f], distance=%.2fm \n",
+                p.x(), p.y(), p.z(), snap_distance);
         }
 
         const double resolution = octree_->getResolution();

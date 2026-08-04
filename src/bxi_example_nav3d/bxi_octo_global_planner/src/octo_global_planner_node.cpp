@@ -147,6 +147,19 @@ public:
     planner_->setOctomap(octree_);
     map_ready_ = true;
 
+    double min_x = 0.0;
+    double min_y = 0.0;
+    double min_z = 0.0;
+    double max_x = 0.0;
+    double max_y = 0.0;
+    double max_z = 0.0;
+    octree_->getMetricMin(min_x, min_y, min_z);
+    octree_->getMetricMax(max_x, max_y, max_z);
+    RCLCPP_INFO(
+      get_logger(),
+      "OctoMap occupied bounds: min=[%.2f %.2f %.2f] max=[%.2f %.2f %.2f]",
+      min_x, min_y, min_z, max_x, max_y, max_z);
+
     if (publish_map_) {
       // Publish once immediately, then refresh periodically for late RViz
       // clients and marker cleanup.

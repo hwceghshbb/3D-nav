@@ -1,0 +1,15 @@
+# Both physical cameras still start, but only the head D435i is used by navigation.
+# The body D435i remains dedicated to the stair active-perception policy.
+# Replace both serials and calibrate the locked head extrinsic.
+/depth_camera_manager:
+  ros__parameters:
+    camera_namespace: hardware
+    enable_depth: true
+    enable_color: true
+    enable_gyro: true
+    enable_accel: true
+    cameras:
+      head_depth_camera:
+        serial_no: "REPLACE_WITH_HEAD_D435I_SERIAL"
+      body_depth_camera:
+        serial_no: "REPLACE_WITH_BODY_D435I_SERIAL"

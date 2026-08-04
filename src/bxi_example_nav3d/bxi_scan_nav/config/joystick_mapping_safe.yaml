@@ -4,17 +4,23 @@ sources:
     device: /dev/input/js0
     signals:
       gamepad.left_y:
-        from: js.axis.1
+        from: js.axis.3
         timeout_ms: 3000
         failsafe: 0.0
       gamepad.left_x:
         from: js.axis.0
         timeout_ms: 3000
         failsafe: 0.0
+      gamepad.yaw:
+        from: js.axis.6
+        timeout_ms: 3000
+        failsafe: 0.0
       gamepad.normal:
         from: js.button.0
       gamepad.recover:
         from: js.button.1
+      gamepad.normal_depth:
+        from: js.button.4
 
 curves:
   stick:
@@ -26,7 +32,8 @@ curves:
 controls:
   move.vx:
     type: analog
-    sources:
+    mix: max_abs
+    inputs:
     - source: gamepad.left_y
       direction: -1
       curve: stick
@@ -36,29 +43,40 @@ controls:
     alpha: 0.08
   move.vy:
     type: analog
-    sources:
-    - source: gamepad.left_x
-      scale: 0.0
-    deadzone: 0.03
-    min: -1.0
-    max: 1.0
-    alpha: 0.08
-  move.yaw:
-    type: analog
-    sources:
+    mix: max_abs
+    inputs:
     - source: gamepad.left_x
       direction: -1
       curve: stick
     deadzone: 0.03
     min: -1.0
     max: 1.0
-    alpha: 0.10
+    alpha: 0.08
+  move.yaw:
+    type: analog
+    mix: max_abs
+    inputs:
+    - source: gamepad.yaw
+      direction: -1
+      curve: stick
+    deadzone: 0.03
+    min: -1.0
+    max: 1.0
+    # remote_controller runs at 100 Hz. A larger alpha makes steering react
+    # promptly while retaining enough smoothing for walking.
+    alpha: 0.20
   gamepad.normal_event:
     type: bool
-    source: gamepad.normal
+    inputs:
+    - source: gamepad.normal
   gamepad.recover_event:
     type: bool
-    source: gamepad.recover
+    inputs:
+    - source: gamepad.recover
+  gamepad.normal_depth_event:
+    type: bool
+    inputs:
+    - source: gamepad.normal_depth
 
 outputs:
   conflict_policy: first_wins
@@ -66,16 +84,16 @@ outputs:
   analog:
     vx:
       control: move.vx
-      scale: 0.18
-      limit: [-0.18, 0.18]
+      scale: 0.30
+      limit: [-0.30, 0.30]
     vy:
       control: move.vy
-      scale: 0.08
-      limit: [-0.08, 0.08]
+      scale: 0.12
+      limit: [-0.12, 0.12]
     yaw:
       control: move.yaw
-      scale: 0.25
-      limit: [-0.25, 0.25]
+      scale: 0.45
+      limit: [-0.45, 0.45]
   level:
   - output: btn_1=1
     when:
@@ -83,3 +101,6 @@ outputs:
   - output: btn_6=1
     when:
     - gamepad.recover_event
+  - output: btn_10=7
+    when:
+    - gamepad.normal_depth_event

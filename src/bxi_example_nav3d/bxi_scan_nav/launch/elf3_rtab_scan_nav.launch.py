@@ -8,12 +8,14 @@ from launch.actions import (
     IncludeLaunchDescription,
     OpaqueFunction,
     RegisterEventHandler,
+    SetEnvironmentVariable,
 )
 from launch.conditions import IfCondition
 from launch.event_handlers import OnShutdown
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def as_bool(value):
@@ -26,9 +28,14 @@ def launch_setup(context, *args, **kwargs):
     scan_share = get_package_share_path("scan_planner")
     rtabmap_share = get_package_share_path("rtabmap_launch")
 
-    model = os.path.join(elf3_share, "data", "mujoco_simulation", "elf3_rooms_datagen.xml")
-    onnx_file = os.path.join(elf3_share, "data", "mjlab_model", "model_normal.onnx")
-    depth_policy_file = os.path.join(elf3_share, "data", "depth_policy", "lyp2", "dagger1.onnx")
+    model = LaunchConfiguration("model_file").perform(context)
+    mapping_camera_name = LaunchConfiguration("mapping_camera_name").perform(context)
+    depth_policy_camera_name = LaunchConfiguration(
+        "depth_policy_camera_name"
+    ).perform(context)
+    state_machine_config = os.path.join(
+        elf3_share, "config", "elf3_state_machine.yaml"
+    )
     nav_config = os.path.join(nav_share, "config", "navigation.yaml")
     rviz_config = os.path.join(nav_share, "config", "elf3_rtab_mapping.rviz")
     planner_yaml = os.path.join(scan_share, "config", "planner.yaml")
@@ -39,6 +46,8 @@ def launch_setup(context, *args, **kwargs):
 
     rtabmap_args = LaunchConfiguration("rtabmap_args").perform(context).strip()
     navigation_3d = as_bool(LaunchConfiguration("navigation_3d").perform(context))
+    body_pose_topic = LaunchConfiguration("body_pose_topic")
+    sensor_pose_topic = LaunchConfiguration("sensor_pose_topic")
     if as_bool(LaunchConfiguration("delete_db_on_start").perform(context)):
         rtabmap_args = (rtabmap_args + " --delete_db_on_start").strip()
     if navigation_3d:
@@ -58,17 +67,37 @@ def launch_setup(context, *args, **kwargs):
         "fsm.navigation_z": 0.8,
         "fsm.use_path_z": navigation_3d,
         "fsm.use_odom_z": navigation_3d,
+        "fsm.local_path_z_offset": 0.20,
         "fsm.thresh_replan": 1.0,
         "fsm.thresh_no_replan": 0.1,
-        "fsm.planning_horizon": 3.0,
+        "fsm.planning_horizon": 2.0,
+        "fsm.waypoint_pass_through_speed_scale": 0.7,
+        "fsm.min_waypoint_window_size": 4,
         "fsm.emergency_time": 1.0,
         "fsm.fail_safe": True,
-        "fsm.max_replan_fail_count": 1000,
-        "fsm.exec_interval_ms": 50,
+        "fsm.max_replan_fail_count": 8,
+        "fsm.exec_interval_ms": 10,
         "fsm.safety_interval_ms": 100,
         "fsm.collision_check_dt": 0.05,
         "fsm.collision_check_horizon": 2.0,
-        "grid_map.resolution": 0.05,
+        "fsm.periodic_replan_interval": 0.35,
+        "fsm.periodic_replan_min_remaining": 0.20,
+        "fsm.enable_completion_driven_replan": True,
+        "fsm.completion_replan_min_interval": 0.05,
+        "fsm.replan_stitch_lookahead": 0.0,
+        "fsm.replan_stitch_max_tracking_error": 0.20,
+        "fsm.keep_previous_traj_min_remaining": 0.50,
+        "fsm.enable_start_snap": True,
+        "fsm.start_snap_radius": 0.35,
+        "fsm.start_snap_z_radius": 0.25,
+        "fsm.enable_target_snap": True,
+        "fsm.target_snap_radius": 0.45,
+        "fsm.target_snap_z_radius": 0.35,
+        "fsm.enable_global_replan_on_local_failure": True,
+        "fsm.global_replan_request_cooldown": 1.0,
+        "fsm.global_replan_goal_z_offset": 0.90,
+        "fsm.global_replan_goal_topic": "/move_base_simple/goal",
+        "grid_map.resolution": 0.08,
         "grid_map.sliding_map_size_x": 6.0,
         "grid_map.sliding_map_size_y": 6.0,
         "grid_map.sliding_map_size_z": 3.2,
@@ -80,20 +109,20 @@ def launch_setup(context, *args, **kwargs):
         "grid_map.sensor_type": "depth",
         "grid_map.cloud_is_world": False,
         "grid_map.need_extrinsic": False,
-        "grid_map.cx": 212.0,
-        "grid_map.cy": 120.0,
-        "grid_map.fx": 130.95702012831255,
-        "grid_map.fy": 130.95702012831255,
-        "grid_map.depth_filter_maxdist": 3.2,
+        "grid_map.cx": 320.0,
+        "grid_map.cy": 180.0,
+        "grid_map.fx": 196.43553019246882,
+        "grid_map.fy": 196.43553019246882,
+        "grid_map.depth_filter_maxdist": 4.5,
         "grid_map.depth_filter_mindist": 0.25,
         "grid_map.depth_filter_margin": 1,
         "grid_map.k_depth_scaling_factor": 1000.0,
-        "grid_map.skip_pixel": 10,
+        "grid_map.skip_pixel": 4,
         "grid_map.body_height": 1.2,
         "grid_map.double_cylinder_radius": 0.22,
         "grid_map.double_cylinder_offset": 0.10,
-        "grid_map.obstacles_inflation_z_up": 0.15,
-        "grid_map.obstacles_inflation_z_down": 0.10,
+        "grid_map.obstacles_inflation_z_up": 0.05,
+        "grid_map.obstacles_inflation_z_down": 0.0,
         "grid_map.frame_id": "world",
         "grid_map.sliding_map_frame_id": "sliding_map",
         "grid_map.ground_height": 0.0,
@@ -111,24 +140,24 @@ def launch_setup(context, *args, **kwargs):
         "grid_map.inflate_vis_z_min": 0.25,
         "grid_map.inflate_vis_z_max": 2.2,
         "grid_map.show_occ_time": False,
-        "optimization.dist0": 0.18,
-        "manager.max_vel": 0.35,
+        "optimization.dist0": 0.30,
+        "manager.max_vel": 0.40,
         "manager.max_acc": 0.35,
         "manager.max_jerk": 4.0,
-        "manager.control_points_distance": 0.2,
+        "manager.control_points_distance": 0.28,
         "manager.feasibility_tolerance": 0.5,
-        "manager.planning_horizon": 3.0,
+        "manager.planning_horizon": 2.0,
         "optimization.lambda_smooth": 1.0,
         "optimization.lambda_collision": 1.0,
         "optimization.lambda_feasibility": 0.1,
-        "optimization.lambda_fitness": 1.0,
-        "optimization.max_vel": 0.35,
+        "optimization.lambda_fitness": 4.0,
+        "optimization.max_vel": 0.40,
         "optimization.max_acc": 0.35,
         "optimization.order": 3,
     }
     controller_overrides = {
-        "max_vx": 0.35,
-        "max_vy": 0.15,
+        "max_vx": 0.40,
+        "max_vy": 0.18,
         "max_vyaw": 0.55,
         "finish_dist": 0.25,
     }
@@ -144,16 +173,13 @@ def launch_setup(context, *args, **kwargs):
         ),
         Node(
             package="bxi_example_py_elf3",
-            executable="bxi_example_py_elf3_mjlab",
+            executable="bxi_example_py_elf3_demo",
             name="elf3_policy",
             output="screen",
             condition=IfCondition(LaunchConfiguration("start_controller")),
             parameters=[
                 {"/topic_prefix": "simulation/"},
-                {"/onnx_file": onnx_file},
-                {"/policy_type": LaunchConfiguration("controller_policy")},
-                {"/depth_policy_file": depth_policy_file},
-                {"/depth_image_topic": "/simulation/origin_depth/depth/image_raw"},
+                {"/state_machine_config": state_machine_config},
             ],
             emulate_tty=True,
         ),
@@ -165,9 +191,27 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 {
                     "model_file": model,
-                    "width": 424,
-                    "height": 240,
-                    "publish_hz": 5.0,
+                    "camera_name": mapping_camera_name,
+                    "frame_id": LaunchConfiguration("mapping_camera_frame_id"),
+                    "color_frame_id": LaunchConfiguration(
+                        "mapping_camera_frame_id"
+                    ),
+                    "hidden_body_names": ["torso_link"],
+                    "width": ParameterValue(
+                        LaunchConfiguration("mapping_camera_width"), value_type=int
+                    ),
+                    "height": ParameterValue(
+                        LaunchConfiguration("mapping_camera_height"), value_type=int
+                    ),
+                    "publish_hz": ParameterValue(
+                        LaunchConfiguration("mapping_camera_hz"), value_type=float
+                    ),
+                    "publish_color": True,
+                    "publish_raw_depth": False,
+                    "depth_encoding": LaunchConfiguration(
+                        "mapping_depth_encoding"
+                    ),
+                    "align_depth_to_color": True,
                 }
             ],
             emulate_tty=True,
@@ -181,7 +225,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 {
                     "model_file": model,
-                    "camera_name": "origin_depth_cam",
+                    "camera_name": depth_policy_camera_name,
                     "output_prefix": "/simulation/origin_depth/",
                     "frame_id": "origin_depth_cam_optical_frame",
                     "hidden_body_names": ["torso_link"],
@@ -197,9 +241,17 @@ def launch_setup(context, *args, **kwargs):
             executable="d435i_pose_publisher",
             name="d435i_pose_publisher",
             output="screen",
+            condition=IfCondition(
+                LaunchConfiguration("publish_simulated_camera_pose")
+            ),
             parameters=[
                 nav_config,
                 {
+                    "model_file": model,
+                    "camera_name": mapping_camera_name,
+                    "sensor_frame_id": LaunchConfiguration(
+                        "mapping_camera_frame_id"
+                    ),
                     "preserve_base_footprint_z": navigation_3d,
                     "base_footprint_z_offset": -0.3,
                 },
@@ -213,7 +265,7 @@ def launch_setup(context, *args, **kwargs):
             output="screen",
             parameters=[
                 {
-                    "depth_topic": "/simulation/d435i/depth/image_raw",
+                    "depth_topic": "/simulation/d435i/depth/image_rect_raw",
                     "camera_info_topic": "/simulation/d435i/depth/camera_info",
                     "pointcloud_topic": "/simulation/d435i/depth/points",
                     "pointcloud_topic_aliases": ["/cloudPointMapping"],
@@ -259,21 +311,21 @@ def launch_setup(context, *args, **kwargs):
                 "rviz": "false",
                 "use_sim_time": "false",
                 "frame_id": "bxi_base_link" if navigation_3d else "bxi_base_footprint",
-                "map_frame_id": "world",
-                "publish_tf_map": "false",
+                "map_frame_id": LaunchConfiguration("global_frame"),
+                "publish_tf_map": "true",
                 "namespace": "rtabmap",
                 "database_path": LaunchConfiguration("database_path"),
                 "topic_queue_size": "100",
                 "queue_size": "100",
-                "qos": "1",
-                "qos_image": "1",
-                "qos_camera_info": "1",
+                "qos": "2",
+                "qos_image": "2",
+                "qos_camera_info": "2",
                 "qos_odom": "1",
                 "wait_for_transform": "0.1",
                 "approx_sync": "true",
                 "approx_sync_max_interval": "0.50",
                 "rgb_topic": "/simulation/d435i/color/image_raw",
-                "depth_topic": "/simulation/d435i/depth/image_raw",
+                "depth_topic": "/simulation/d435i/depth/image_rect_raw",
                 "camera_info_topic": "/simulation/d435i/depth/camera_info",
                 "depth": "true",
                 "rgbd_sync": "true",
@@ -281,7 +333,7 @@ def launch_setup(context, *args, **kwargs):
                 "subscribe_rgbd": "true",
                 "visual_odometry": "false",
                 "icp_odometry": "false",
-                "odom_topic": "/simulation/base/pose" if navigation_3d else "/simulation/base_footprint/pose",
+                "odom_topic": LaunchConfiguration("rtabmap_odom_topic"),
                 "publish_tf_odom": "false",
                 "map_topic": "map",
                 "args": rtabmap_args,
@@ -298,7 +350,7 @@ def launch_setup(context, *args, **kwargs):
                 {
                     "clicked_point_topic": "/clicked_point",
                     "goal_topic": "/move_base_simple/goal",
-                    "odom_topic": "/simulation/base_footprint/pose",
+                    "odom_topic": body_pose_topic,
                     "tomogram_topic": "/pct_tomogram_points",
                     "marker_topic": "/clicked_3d_goal_marker",
                     "target_frame": "world",
@@ -320,7 +372,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 {
                     "goal_topic": "/move_base_simple/goal",
-                    "odom_topic": "/simulation/base_footprint/pose",
+                    "odom_topic": body_pose_topic,
                     "path_topic": "/initial_path",
                     "debug_path_topic": "/split_level_global_path",
                     "lower_floor_z": 0.8,
@@ -343,7 +395,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 {
                     "cloud_topic": "/rtabmap/cloud_map",
-                    "odom_topic": "/simulation/base_footprint/pose",
+                    "odom_topic": body_pose_topic,
                     "goal_topic": "/move_base_simple/goal",
                     "path_topic": "/initial_path",
                     "debug_path_topic": "/elevation_global_path",
@@ -379,7 +431,7 @@ def launch_setup(context, *args, **kwargs):
                         "PCT_PLANNER_ROOT", ""
                     ),
                     "cloud_topic": "/rtabmap/cloud_map",
-                    "odom_topic": "/simulation/base/pose" if navigation_3d else "/simulation/base_footprint/pose",
+                    "odom_topic": body_pose_topic,
                     "localization_pose_topic": "/rtabmap/localization_pose",
                     "use_localization_pose": True,
                     "goal_topic": "/move_base_simple/goal",
@@ -455,7 +507,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 {
                     "goal_topic": "/move_base_simple/goal",
-                    "odom_topic": "/simulation/base_footprint/pose",
+                    "odom_topic": body_pose_topic,
                     "path_topic": "/nav2_global_path",
                     "compat_path_topic": "/rtabmap_global_path",
                     "planner_id": "GridBased",
@@ -474,7 +526,7 @@ def launch_setup(context, *args, **kwargs):
             parameters=[
                 {
                     "global_path_topic": "/nav2_global_path",
-                    "odom_topic": "/simulation/base_footprint/pose",
+                    "odom_topic": body_pose_topic,
                     "local_path_topic": "/initial_path",
                     "debug_path_topic": "/scan_planner/local_target_path",
                     "lookahead_distance": 1.0,
@@ -512,9 +564,9 @@ def launch_setup(context, *args, **kwargs):
             condition=IfCondition(LaunchConfiguration("start_scan_planner")),
             parameters=[planner_overrides],
             remappings=[
-                ("body_pose", "/simulation/base_footprint/pose"),
-                ("sensor_pose", "/simulation/d435i/depth/pose"),
-                ("depth", "/simulation/d435i/depth/image_raw"),
+                ("body_pose", body_pose_topic),
+                ("sensor_pose", sensor_pose_topic),
+                ("depth", "/simulation/d435i/depth/image_rect_raw"),
                 ("initial_path", "/initial_path"),
             ],
             emulate_tty=True,
@@ -527,8 +579,8 @@ def launch_setup(context, *args, **kwargs):
             condition=IfCondition(LaunchConfiguration("start_scan_planner")),
             parameters=[controllers_yaml, controller_overrides],
             remappings=[
-                ("body_pose", "/simulation/base_footprint/pose"),
-                ("cmd_vel", "/scan_planner/cmd_vel"),
+                ("body_pose", body_pose_topic),
+                ("cmd_vel", "/cmd_vel"),
                 ("planning/bspline", "/planning/bspline"),
             ],
             emulate_tty=True,
@@ -556,6 +608,12 @@ def launch_setup(context, *args, **kwargs):
 
 
 def generate_launch_description():
+    default_model = str(
+        get_package_share_path("bxi_example_py_elf3")
+        / "data"
+        / "mujoco_simulation"
+        / "elf3_rooms_datagen.xml"
+    )
     mapping_args = (
         "--Rtabmap/DetectionRate 2 "
         "--RGBD/LinearUpdate 0.05 "
@@ -565,12 +623,12 @@ def generate_launch_description():
         "--Grid/3D true "
         "--Grid/RayTracing true "
         "--RGBD/CreateOccupancyGrid true "
-        "--Rtabmap/LoopThr 0.99 "
-        "--RGBD/ProximityBySpace false "
-        "--RGBD/ProximityByTime false "
+        "--Rtabmap/LoopThr 0.20 "
+        "--RGBD/ProximityBySpace true "
+        "--RGBD/ProximityByTime true "
         "--RGBD/OptimizeMaxError 1.0 "
         "--Optimizer/Strategy 1 "
-        "--Optimizer/Robust false "
+        "--Optimizer/Robust true "
         "--Vis/MinInliers 8 "
         "--Kp/MaxFeatures 1000 "
         "--Grid/RangeMax 4.5 "
@@ -578,7 +636,43 @@ def generate_launch_description():
     )
     return LaunchDescription(
         [
+            SetEnvironmentVariable(
+                "FASTRTPS_DEFAULT_PROFILES_FILE",
+                str(
+                    get_package_share_path("bxi_cuvslam_localization")
+                    / "config"
+                    / "fastdds_large_data.xml"
+                ),
+            ),
+            DeclareLaunchArgument("model_file", default_value=default_model),
+            DeclareLaunchArgument("mapping_camera_name", default_value="d435i_depth"),
+            DeclareLaunchArgument("mapping_camera_width", default_value="424"),
+            DeclareLaunchArgument("mapping_camera_height", default_value="240"),
+            DeclareLaunchArgument("mapping_camera_hz", default_value="30.0"),
+            DeclareLaunchArgument(
+                "mapping_depth_encoding", default_value="16UC1"
+            ),
+            DeclareLaunchArgument(
+                "mapping_camera_frame_id",
+                default_value="head_depth_camera_depth_optical_frame",
+            ),
+            DeclareLaunchArgument(
+                "depth_policy_camera_name", default_value="origin_depth_cam"
+            ),
             DeclareLaunchArgument("start_controller", default_value="false"),
+            DeclareLaunchArgument("global_frame", default_value="world"),
+            DeclareLaunchArgument(
+                "publish_simulated_camera_pose", default_value="true"
+            ),
+            DeclareLaunchArgument(
+                "rtabmap_odom_topic", default_value="/simulation/base/pose"
+            ),
+            DeclareLaunchArgument(
+                "body_pose_topic", default_value="/simulation/base_footprint/pose"
+            ),
+            DeclareLaunchArgument(
+                "sensor_pose_topic", default_value="/simulation/d435i/depth/pose"
+            ),
             DeclareLaunchArgument("controller_policy", default_value="depth_origin"),
             DeclareLaunchArgument("start_depth_policy_camera", default_value="true"),
             DeclareLaunchArgument("start_scan_planner", default_value="true"),

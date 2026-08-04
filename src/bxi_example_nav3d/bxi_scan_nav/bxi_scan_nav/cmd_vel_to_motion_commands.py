@@ -2,12 +2,14 @@ import communication.msg as bxi_msg
 import rclpy
 from geometry_msgs.msg import Twist
 from rclpy.node import Node
+from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
+from std_msgs.msg import Bool
 
 
 class CmdVelToMotionCommands(Node):
     def __init__(self):
         super().__init__("cmd_vel_to_motion_commands")
-        self.declare_parameter("cmd_vel_topic", "/scan_planner/cmd_vel")
+        self.declare_parameter("cmd_vel_topic", "/cmd_vel")
         self.declare_parameter("motion_commands_topic", "motion_commands")
         self.declare_parameter("max_vx", 0.35)
         self.declare_parameter("max_vy", 0.15)
@@ -16,6 +18,12 @@ class CmdVelToMotionCommands(Node):
         self.declare_parameter("policy_vy_scale", 2.0)
         self.declare_parameter("policy_yawdot_scale", 2.0)
         self.declare_parameter("height_des", 1.0)
+        self.declare_parameter("require_localization_valid", False)
+        self.declare_parameter("localization_valid_topic", "/nav/localization_valid")
+        self.require_localization_valid = bool(
+            self.get_parameter("require_localization_valid").value
+        )
+        self.localization_valid = not self.require_localization_valid
         self.publisher = self.create_publisher(
             bxi_msg.MotionCommands,
             self.get_parameter("motion_commands_topic").value,
@@ -27,14 +35,40 @@ class CmdVelToMotionCommands(Node):
             self.cmd_vel_callback,
             10,
         )
+        if self.require_localization_valid:
+            latched_qos = QoSProfile(
+                depth=1,
+                reliability=ReliabilityPolicy.RELIABLE,
+                durability=DurabilityPolicy.TRANSIENT_LOCAL,
+            )
+            self.create_subscription(
+                Bool,
+                self.get_parameter("localization_valid_topic").value,
+                self.localization_valid_callback,
+                latched_qos,
+            )
+            self.stop_timer = self.create_timer(0.05, self.publish_stop_if_invalid)
+
+    def localization_valid_callback(self, msg):
+        self.localization_valid = bool(msg.data)
+
+    def publish_stop_if_invalid(self):
+        if not self.localization_valid:
+            self.publish_command(0.0, 0.0, 0.0)
 
     def cmd_vel_callback(self, msg):
+        if not self.localization_valid:
+            self.publish_command(0.0, 0.0, 0.0)
+            return
+        self.publish_command(msg.linear.x, msg.linear.y, msg.angular.z)
+
+    def publish_command(self, vx, vy, yawdot):
+        vx = self.clamp(vx, self.get_parameter("max_vx").value)
+        vy = self.clamp(vy, self.get_parameter("max_vy").value)
+        yawdot = self.clamp(yawdot, self.get_parameter("max_yawdot").value)
         command = bxi_msg.MotionCommands()
         command.header.stamp = self.get_clock().now().to_msg()
         command.header.frame_id = "scan_planner"
-        vx = self.clamp(msg.linear.x, self.get_parameter("max_vx").value)
-        vy = self.clamp(msg.linear.y, self.get_parameter("max_vy").value)
-        yawdot = self.clamp(msg.angular.z, self.get_parameter("max_yawdot").value)
         command.vel_des.x = vx / self.scale("policy_vx_scale")
         command.vel_des.y = vy / self.scale("policy_vy_scale")
         command.vel_des.z = 0.0

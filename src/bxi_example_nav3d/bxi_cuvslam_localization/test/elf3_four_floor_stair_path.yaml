@@ -1,0 +1,72 @@
+header:
+  frame_id: map
+east: &east {x: 0.0, y: 0.0, z: 0.0, w: 1.0}
+north: &north {x: 0.0, y: 0.0, z: 0.7071067812, w: 0.7071067812}
+west: &west {x: 0.0, y: 0.0, z: 1.0, w: 0.0}
+south: &south {x: 0.0, y: 0.0, z: -0.7071067812, w: 0.7071067812}
+poses:
+  # Floor 1 approach and stair 1: duplicate corner poses create in-place turns.
+  - pose: {position: {x: 0.8, y: -1.0, z: 1.1}, orientation: *east}
+  - pose: {position: {x: 6.8, y: -1.0, z: 1.1}, orientation: *east}
+  - pose: {position: {x: 6.8, y: -1.0, z: 1.1}, orientation: *north}
+  - pose: {position: {x: 6.8, y: 0.2, z: 1.1}, orientation: *north}
+  - pose: {position: {x: 6.8, y: 0.2, z: 1.1}, orientation: *east}
+  - pose: {position: {x: 10.6, y: 0.2, z: 1.1}, orientation: *east}
+  - pose: {position: {x: 10.6, y: 0.2, z: 1.1}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 0.55, z: 1.25}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 4.45, z: 3.2}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 4.45, z: 3.2}, orientation: *east}
+  - pose: {position: {x: 15.3, y: 4.45, z: 3.2}, orientation: *east}
+  - pose: {position: {x: 15.3, y: 4.45, z: 3.2}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.55, z: 5.3}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.2, z: 5.3}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.2, z: 5.3}, orientation: *west}
+
+  # Floor 2 loop and stair 2.
+  - pose: {position: {x: -1.0, y: 0.2, z: 5.3}, orientation: *west}
+  - pose: {position: {x: -1.0, y: 0.2, z: 5.3}, orientation: *north}
+  - pose: {position: {x: -1.0, y: 5.5, z: 5.3}, orientation: *north}
+  - pose: {position: {x: -1.0, y: 5.5, z: 5.3}, orientation: *east}
+  - pose: {position: {x: 5.5, y: 5.5, z: 5.3}, orientation: *east}
+  - pose: {position: {x: 5.5, y: 5.5, z: 5.3}, orientation: *south}
+  - pose: {position: {x: 5.5, y: 0.2, z: 5.3}, orientation: *south}
+  - pose: {position: {x: 5.5, y: 0.2, z: 5.3}, orientation: *east}
+  - pose: {position: {x: 10.6, y: 0.2, z: 5.3}, orientation: *east}
+  - pose: {position: {x: 10.6, y: 0.2, z: 5.3}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 0.55, z: 5.45}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 4.45, z: 7.4}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 4.45, z: 7.4}, orientation: *east}
+  - pose: {position: {x: 15.3, y: 4.45, z: 7.4}, orientation: *east}
+  - pose: {position: {x: 15.3, y: 4.45, z: 7.4}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.55, z: 9.5}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.2, z: 9.5}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.2, z: 9.5}, orientation: *west}
+
+  # Floor 3 loop and stair 3.
+  - pose: {position: {x: -1.0, y: 0.2, z: 9.5}, orientation: *west}
+  - pose: {position: {x: -1.0, y: 0.2, z: 9.5}, orientation: *north}
+  - pose: {position: {x: -1.0, y: 5.5, z: 9.5}, orientation: *north}
+  - pose: {position: {x: -1.0, y: 5.5, z: 9.5}, orientation: *east}
+  - pose: {position: {x: 5.5, y: 5.5, z: 9.5}, orientation: *east}
+  - pose: {position: {x: 5.5, y: 5.5, z: 9.5}, orientation: *south}
+  - pose: {position: {x: 5.5, y: 0.2, z: 9.5}, orientation: *south}
+  - pose: {position: {x: 5.5, y: 0.2, z: 9.5}, orientation: *east}
+  - pose: {position: {x: 10.6, y: 0.2, z: 9.5}, orientation: *east}
+  - pose: {position: {x: 10.6, y: 0.2, z: 9.5}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 0.55, z: 9.65}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 4.45, z: 11.6}, orientation: *north}
+  - pose: {position: {x: 10.6, y: 4.45, z: 11.6}, orientation: *east}
+  - pose: {position: {x: 15.3, y: 4.45, z: 11.6}, orientation: *east}
+  - pose: {position: {x: 15.3, y: 4.45, z: 11.6}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.55, z: 13.7}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.2, z: 13.7}, orientation: *south}
+  - pose: {position: {x: 15.3, y: 0.2, z: 13.7}, orientation: *west}
+
+  # Floor 4 loop.
+  - pose: {position: {x: -1.0, y: 0.2, z: 13.7}, orientation: *west}
+  - pose: {position: {x: -1.0, y: 0.2, z: 13.7}, orientation: *north}
+  - pose: {position: {x: -1.0, y: 5.5, z: 13.7}, orientation: *north}
+  - pose: {position: {x: -1.0, y: 5.5, z: 13.7}, orientation: *east}
+  - pose: {position: {x: 5.5, y: 5.5, z: 13.7}, orientation: *east}
+  - pose: {position: {x: 5.5, y: 5.5, z: 13.7}, orientation: *south}
+  - pose: {position: {x: 5.5, y: 0.2, z: 13.7}, orientation: *south}

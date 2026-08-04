@@ -89,7 +89,7 @@ def generate_launch_description():
             parameters=[controllers_yaml, controller_overrides],
             remappings=[
                 ("body_pose", "/simulation/odom"),
-                ("cmd_vel", "/scan_planner/cmd_vel"),
+                ("cmd_vel", "/cmd_vel"),
                 ("planning/bspline", "/planning/bspline"),
             ],
             emulate_tty=True,

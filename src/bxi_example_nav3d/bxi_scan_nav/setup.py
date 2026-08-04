@@ -20,6 +20,7 @@ setup(
     zip_safe=True,
     entry_points={
         "console_scripts": [
+            "camera_frame_trigger = bxi_scan_nav.camera_frame_trigger:main",
             "rgbd_camera_publisher = bxi_scan_nav.rgbd_camera_publisher:main",
             "depth_to_pointcloud = bxi_scan_nav.depth_to_pointcloud:main",
             "clicked_point_3d_goal = bxi_scan_nav.clicked_point_3d_goal:main",

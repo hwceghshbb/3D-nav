@@ -1,0 +1,118 @@
+<mujoco model="cuvslam_rich_scene">
+  <compiler angle="degree"/>
+  <option gravity="0 0 -9.81"/>
+  <visual>
+    <global offwidth="1280" offheight="720"/>
+    <map znear="0.02" zfar="80"/>
+    <headlight ambient="0.35 0.35 0.35" diffuse="0.75 0.75 0.75" specular="0.1 0.1 0.1"/>
+  </visual>
+
+  <asset>
+    <texture name="wall_a" type="2d" file="assets/rich_wall_0.png"/>
+    <texture name="wall_b" type="2d" file="assets/rich_wall_1.png"/>
+    <texture name="wall_c" type="2d" file="assets/rich_wall_2.png"/>
+    <texture name="wall_d" type="2d" file="assets/rich_wall_3.png"/>
+    <texture name="floor_grid" type="2d" builtin="checker" rgb1="0.18 0.20 0.22" rgb2="0.72 0.74 0.70" width="1024" height="1024"/>
+    <material name="mat_a" texture="wall_a" texrepeat="1 1" texuniform="false" reflectance="0"/>
+    <material name="mat_b" texture="wall_b" texrepeat="1 1" texuniform="false" reflectance="0"/>
+    <material name="mat_c" texture="wall_c" texrepeat="1 1" texuniform="false" reflectance="0"/>
+    <material name="mat_d" texture="wall_d" texrepeat="1 1" texuniform="false" reflectance="0"/>
+    <material name="mat_floor" texture="floor_grid" texrepeat="12 8" reflectance="0.05"/>
+  </asset>
+
+  <worldbody>
+    <light pos="2 1 4" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <light pos="8 3 4" dir="0 0 -1" diffuse="0.8 0.8 0.8"/>
+    <geom name="floor" type="plane" size="20 20 0.1" material="mat_floor"/>
+    <geom name="south_wall" type="box" pos="5 -1.2 1.5" size="6.2 0.05 1.5" material="mat_a"/>
+    <geom name="north_wall" type="box" pos="5 5.2 1.5" size="6.2 0.05 1.5" material="mat_b"/>
+    <geom name="west_wall" type="box" pos="-1.2 2 1.5" size="0.05 3.2 1.5" material="mat_c"/>
+    <geom name="east_wall" type="box" pos="11.2 2 1.5" size="0.05 3.2 1.5" material="mat_d"/>
+
+    <geom type="cylinder" pos="2.0 2.0 0.8" size="0.22 0.8" rgba="0.82 0.18 0.12 1"/>
+    <geom type="box" pos="3.3 2.2 0.55" size="0.28 0.40 0.55" rgba="0.12 0.48 0.82 1"/>
+    <geom type="cylinder" pos="4.7 1.8 1.0" size="0.32 1.0" rgba="0.18 0.68 0.32 1"/>
+    <geom type="box" pos="6.0 2.3 0.75" size="0.45 0.24 0.75" euler="0 0 20" rgba="0.90 0.62 0.10 1"/>
+    <geom type="cylinder" pos="7.4 1.7 0.65" size="0.18 0.65" rgba="0.55 0.20 0.72 1"/>
+    <geom type="box" pos="8.7 2.2 1.05" size="0.26 0.48 1.05" euler="0 0 -15" rgba="0.08 0.64 0.68 1"/>
+
+    <geom type="box" pos="1.0 -0.95 2.35" size="0.18 0.08 0.25" rgba="0.95 0.25 0.20 1"/>
+    <geom type="box" pos="3.0 -0.95 1.85" size="0.28 0.08 0.18" rgba="0.15 0.75 0.35 1"/>
+    <geom type="box" pos="5.0 -0.95 2.25" size="0.22 0.08 0.32" rgba="0.25 0.40 0.95 1"/>
+    <geom type="box" pos="7.0 -0.95 1.70" size="0.35 0.08 0.16" rgba="0.95 0.70 0.12 1"/>
+    <geom type="box" pos="9.0 -0.95 2.10" size="0.20 0.08 0.38" rgba="0.70 0.20 0.85 1"/>
+
+    <geom type="box" pos="10.95 0.0 1.75" size="0.08 0.18 0.32" rgba="0.90 0.18 0.15 1"/>
+    <geom type="box" pos="10.95 0.8 2.30" size="0.08 0.30 0.16" rgba="0.15 0.62 0.88 1"/>
+    <geom type="box" pos="10.95 1.6 1.50" size="0.08 0.14 0.48" rgba="0.22 0.78 0.32 1"/>
+    <geom type="cylinder" pos="10.95 2.4 2.15" size="0.22 0.08" euler="0 90 0" rgba="0.92 0.64 0.10 1"/>
+    <geom type="box" pos="10.95 3.2 1.85" size="0.08 0.38 0.20" rgba="0.62 0.20 0.82 1"/>
+    <geom type="box" pos="10.95 4.0 2.35" size="0.08 0.16 0.35" rgba="0.10 0.72 0.70 1"/>
+
+    <geom type="box" pos="9.5 4.95 1.65" size="0.22 0.08 0.42" rgba="0.82 0.22 0.14 1"/>
+    <geom type="cylinder" pos="8.0 4.95 2.20" size="0.20 0.08" euler="90 0 0" rgba="0.12 0.50 0.92 1"/>
+    <geom type="box" pos="6.5 4.95 2.35" size="0.42 0.08 0.16" rgba="0.18 0.78 0.35 1"/>
+    <geom type="box" pos="5.0 4.95 1.55" size="0.16 0.08 0.50" rgba="0.94 0.66 0.08 1"/>
+    <geom type="cylinder" pos="3.5 4.95 2.05" size="0.26 0.08" euler="90 0 0" rgba="0.68 0.18 0.82 1"/>
+    <geom type="box" pos="2.0 4.95 2.25" size="0.30 0.08 0.26" rgba="0.08 0.70 0.72 1"/>
+    <geom type="box" pos="0.5 4.95 1.75" size="0.18 0.08 0.38" rgba="0.88 0.28 0.48 1"/>
+
+    <geom type="box" pos="-0.95 4.0 2.25" size="0.08 0.26 0.18" rgba="0.16 0.48 0.92 1"/>
+    <geom type="box" pos="-0.95 3.2 1.60" size="0.08 0.15 0.45" rgba="0.90 0.25 0.12 1"/>
+    <geom type="cylinder" pos="-0.95 2.4 2.15" size="0.24 0.08" euler="0 90 0" rgba="0.20 0.76 0.38 1"/>
+    <geom type="box" pos="-0.95 1.6 2.30" size="0.08 0.36 0.16" rgba="0.94 0.70 0.10 1"/>
+    <geom type="box" pos="-0.95 0.8 1.75" size="0.08 0.20 0.35" rgba="0.62 0.18 0.86 1"/>
+    <geom type="box" pos="-0.95 0.0 2.20" size="0.08 0.14 0.42" rgba="0.08 0.72 0.72 1"/>
+
+    <!-- Dense, depth-bearing corner targets prevent featureless views during turns. -->
+    <replicate count="5" offset="0 0.4 0">
+      <replicate count="5" offset="0 0 0.45">
+        <geom type="box" pos="11.02 -0.8 0.35" size="0.08 0.07 0.07" contype="0" conaffinity="0" rgba="0.92 0.92 0.92 1"/>
+      </replicate>
+    </replicate>
+    <replicate count="4" offset="0 0.4 0">
+      <replicate count="4" offset="0 0 0.45">
+        <geom type="box" pos="10.98 -0.6 0.575" size="0.10 0.06 0.06" contype="0" conaffinity="0" rgba="0.12 0.12 0.12 1"/>
+      </replicate>
+    </replicate>
+
+    <replicate count="5" offset="-0.4 0 0">
+      <replicate count="5" offset="0 0 0.45">
+        <geom type="box" pos="10.8 5.02 0.35" size="0.07 0.08 0.07" contype="0" conaffinity="0" rgba="0.92 0.92 0.92 1"/>
+      </replicate>
+    </replicate>
+    <replicate count="4" offset="-0.4 0 0">
+      <replicate count="4" offset="0 0 0.45">
+        <geom type="box" pos="10.6 4.98 0.575" size="0.06 0.10 0.06" contype="0" conaffinity="0" rgba="0.12 0.12 0.12 1"/>
+      </replicate>
+    </replicate>
+
+    <replicate count="5" offset="0 -0.4 0">
+      <replicate count="5" offset="0 0 0.45">
+        <geom type="box" pos="-1.02 4.8 0.35" size="0.08 0.07 0.07" contype="0" conaffinity="0" rgba="0.92 0.92 0.92 1"/>
+      </replicate>
+    </replicate>
+    <replicate count="4" offset="0 -0.4 0">
+      <replicate count="4" offset="0 0 0.45">
+        <geom type="box" pos="-0.98 4.6 0.575" size="0.10 0.06 0.06" contype="0" conaffinity="0" rgba="0.12 0.12 0.12 1"/>
+      </replicate>
+    </replicate>
+
+    <replicate count="5" offset="0.4 0 0">
+      <replicate count="5" offset="0 0 0.45">
+        <geom type="box" pos="-0.8 -1.02 0.35" size="0.07 0.08 0.07" contype="0" conaffinity="0" rgba="0.92 0.92 0.92 1"/>
+      </replicate>
+    </replicate>
+    <replicate count="4" offset="0.4 0 0">
+      <replicate count="4" offset="0 0 0.45">
+        <geom type="box" pos="-0.6 -0.98 0.575" size="0.06 0.10 0.06" contype="0" conaffinity="0" rgba="0.12 0.12 0.12 1"/>
+      </replicate>
+    </replicate>
+
+    <body name="camera_rig" pos="0 0 1.2">
+      <freejoint/>
+      <inertial pos="0 0 0" mass="0.01" diaginertia="0.0001 0.0001 0.0001"/>
+      <camera name="head_depth_camera" mode="fixed" pos="0 0 0" xyaxes="0 -1 0 0 0 1" fovy="43.173360"/>
+    </body>
+  </worldbody>
+</mujoco>
