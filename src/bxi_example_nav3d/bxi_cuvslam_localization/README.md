@@ -14,11 +14,8 @@ The head joints must remain locked at their calibrated zero position.
 ## Install cuVSLAM for ROS Python
 
 ROS Humble uses Python 3.10. Install the local cuVSLAM build for that interpreter
-once on each deployment machine:
-
-```bash
-./scripts/install_cuvslam_ros_python.sh /home/hwc/code/cuVSLAM
-```
+once on each deployment machine before selecting the `cuvslam` localization
+backend.
 
 ## Mapping
 

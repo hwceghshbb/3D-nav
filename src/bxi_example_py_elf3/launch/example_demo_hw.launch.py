@@ -5,7 +5,12 @@ import sys
 
 from ament_index_python.packages import get_package_share_path
 from launch import LaunchDescription
-from launch.actions import IncludeLaunchDescription, OpaqueFunction
+from launch.actions import (
+    DeclareLaunchArgument,
+    IncludeLaunchDescription,
+    OpaqueFunction,
+)
+from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from bxi_example_py_elf3.framework.mod_api.hardware_launch import (
@@ -102,8 +107,16 @@ def generate_launch_description():
     return LaunchDescription(
         declare_hardware_launch_arguments()
         + [
+            DeclareLaunchArgument(
+                "camera_config",
+                default_value="",
+                description="Dual-camera serial-number and profile YAML.",
+            ),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(cameras_launch),
+                launch_arguments={
+                    "config_file": LaunchConfiguration("camera_config")
+                }.items(),
             ),
             OpaqueFunction(
                 function=lambda context: [hardware_node_from_context(context)]

@@ -67,8 +67,8 @@ class HeadCuvslamNode(Node):
             import cuvslam
         except ImportError as error:
             raise RuntimeError(
-                "cuVSLAM is not installed for ROS Python. Run "
-                "scripts/install_cuvslam_ros_python.sh first."
+                "cuVSLAM Python bindings are not installed for the ROS Python "
+                "interpreter. Install the bindings before selecting cuvslam."
             ) from error
         self.cuvslam = cuvslam
         self.tracker = None

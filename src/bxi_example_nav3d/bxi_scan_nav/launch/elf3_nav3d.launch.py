@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from ament_index_python.packages import get_package_share_path
+from ament_index_python.packages import PackageNotFoundError, get_package_share_path
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument
 from launch.conditions import IfCondition
@@ -12,15 +12,21 @@ from launch_ros.parameter_descriptions import ParameterValue
 
 def generate_launch_description():
     nav_share = get_package_share_path("bxi_scan_nav")
-    elf3_share = get_package_share_path("bxi_example_py_elf3")
     scan_share = get_package_share_path("scan_planner")
 
-    model_file = os.path.join(
-        elf3_share, "data", "mujoco_simulation", "elf3_rooms_nav3d.xml"
-    )
-    state_machine_config = os.path.join(
-        elf3_share, "config", "elf3_state_machine.yaml"
-    )
+    # The ELF3 simulation/controller package is optional.  Nodes using these
+    # defaults are conditionally disabled by the hardware deployment launch.
+    try:
+        elf3_share = get_package_share_path("bxi_example_py_elf3")
+        model_file = os.path.join(
+            elf3_share, "data", "mujoco_simulation", "elf3_rooms_nav3d.xml"
+        )
+        state_machine_config = os.path.join(
+            elf3_share, "config", "elf3_state_machine.yaml"
+        )
+    except PackageNotFoundError:
+        model_file = ""
+        state_machine_config = ""
     nav_config = os.path.join(nav_share, "config", "navigation.yaml")
     rviz_config = os.path.join(nav_share, "config", "elf3_octo_scan_nav.rviz")
     planner_yaml = os.path.join(scan_share, "config", "planner.yaml")
@@ -355,8 +361,8 @@ def generate_launch_description():
                 emulate_tty=True,
             ),
             Node(
-                package="bxi_scan_nav",
-                executable="camera_frame_trigger",
+                package="bxi_cuvslam_localization",
+                executable="nav_camera_frame_trigger",
                 name="camera_frame_trigger",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("start_simulated_cameras")),
@@ -371,8 +377,8 @@ def generate_launch_description():
                 ],
             ),
             Node(
-                package="bxi_scan_nav",
-                executable="rgbd_camera_publisher",
+                package="bxi_cuvslam_localization",
+                executable="nav_rgbd_camera_publisher",
                 name="nav_rgbd_camera_publisher",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("start_simulated_cameras")),
@@ -407,8 +413,8 @@ def generate_launch_description():
                 emulate_tty=True,
             ),
             Node(
-                package="bxi_scan_nav",
-                executable="rgbd_camera_publisher",
+                package="bxi_cuvslam_localization",
+                executable="nav_rgbd_camera_publisher",
                 name="body_depth_camera_publisher",
                 output="screen",
                 condition=IfCondition(
@@ -656,8 +662,8 @@ def generate_launch_description():
                 emulate_tty=True,
             ),
             Node(
-                package="bxi_scan_nav",
-                executable="cmd_vel_to_motion_commands",
+                package="bxi_cuvslam_localization",
+                executable="navigation_command_bridge",
                 name="cmd_vel_to_motion_commands",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("start_scan_planner")),

@@ -30,7 +30,7 @@ sources:
   #手柄按键配置
   gamepad:
     type: joystick
-    device: /dev/input/jsBattleDragon
+    device: /dev/input/by-id/usb-PowerA_PowerA_Battle_Dragon_Advanced_Wireless_Controller_for_PC_and_Cl_Dinput_Controller-joystick
     priority: 50
     ready_timeout_ms: 1000
     loss_timeout_ms: 300
@@ -310,11 +310,20 @@ outputs:
 
   #连续的模拟值
   analog:
-    vx: move.vx
-    vy: move.vy
+    # 室内遥控/建图中速档：摇杆推满也限制在以下输出范围。
+    vx:
+      control: move.vx
+      scale: 0.35
+      limit: [-0.35, 0.35]
+    vy:
+      control: move.vy
+      scale: 0.20
+      limit: [-0.20, 0.20]
     yaw:
       controls: [move.yaw, crsf.yaw]
       mix: max_abs
+      scale: 0.35
+      limit: [-0.35, 0.35]
 
   #上升沿触发，满足条件会输出目标值随后恢复为0
   edge:

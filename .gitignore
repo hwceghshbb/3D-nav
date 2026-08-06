@@ -4,6 +4,10 @@
 build/
 install/
 log/
+build_*/
+install_*/
+log_*/
+maps/
 benchmarks/results/
 benchmarks/cache/
 tools/**/results/
@@ -21,3 +25,4 @@ src/http_motion_bridge/
 rosbag2_*/
 *.build.lock
 src/bxi_example_nav3d/third_party/OctoPlanner3D-ROS2/octomap/pcd_files/
+src/bxi_example_nav3d/third_party/ORB_SLAM3/**/build/

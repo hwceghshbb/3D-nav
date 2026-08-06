@@ -1,0 +1,83 @@
+#!/usr/bin/env bash
+set -eo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+NAV3D_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+WORKSPACE_DIR="${NAV3D_WORKSPACE:-$(cd "$NAV3D_ROOT/../.." && pwd)}"
+LOCALIZATION_BACKEND="${LOCALIZATION_BACKEND:-rtabmap}"
+RTABMAP_DATABASE="${RTABMAP_DATABASE:-/opt/bxi/maps/site.db}"
+ORB_MAP_DIRECTORY="${ORB_MAP_DIRECTORY:-/opt/bxi/maps/site_orb}"
+ORB_ATLAS_NAME="${ORB_ATLAS_NAME:-atlas}"
+ORB_MAX_TIME_DIFF="${ORB_MAX_TIME_DIFF:-0.008}"
+ORB_SETTINGS="${ORB_SETTINGS:-$WORKSPACE_DIR/install/share/bxi_orbslam3_ros2/config/elf3_body_1280x720_rgbd.yaml}"
+CUVSLAM_MAP_DIRECTORY="${CUVSLAM_MAP_DIRECTORY:-/opt/bxi/maps/site_cuvslam}"
+OCTO_INPUT_PCD="${OCTO_INPUT_PCD:-/opt/bxi/maps/site_cloud.ply}"
+START_RVIZ="${START_RVIZ:-true}"
+START_SCAN_PLANNER="${START_SCAN_PLANNER:-true}"
+START_OCTO_GLOBAL_PLANNER="${START_OCTO_GLOBAL_PLANNER:-true}"
+EXTRA_ARGS=()
+
+while (($#)); do
+  case "$1" in
+    cuvslam|rtabmap|orbslam3)
+      LOCALIZATION_BACKEND="$1"
+      ;;
+    --localization-backend)
+      shift
+      LOCALIZATION_BACKEND="${1:-}"
+      ;;
+    --localization-backend=*)
+      LOCALIZATION_BACKEND="${1#*=}"
+      ;;
+    localization_backend:=*)
+      LOCALIZATION_BACKEND="${1#*=}"
+      ;;
+    *)
+      EXTRA_ARGS+=("$1")
+      ;;
+  esac
+  shift
+done
+
+case "$LOCALIZATION_BACKEND" in
+  cuvslam|rtabmap|orbslam3) ;;
+  *)
+    echo "localization_backend must be cuvslam, rtabmap, or orbslam3" >&2
+    exit 2
+    ;;
+esac
+
+source /opt/ros/humble/setup.bash
+if [[ -f /opt/bxi/bxi_ros2_pkg/setup.bash ]]; then
+  source /opt/bxi/bxi_ros2_pkg/setup.bash
+fi
+source "$WORKSPACE_DIR/install/setup.bash"
+
+if [[ ! -f "$RTABMAP_DATABASE" ]]; then
+  echo "Missing RTAB-Map database: $RTABMAP_DATABASE" >&2
+  exit 1
+fi
+if [[ "$START_OCTO_GLOBAL_PLANNER" == "true" ]] && \
+   [[ ! -f "$OCTO_INPUT_PCD" ]]; then
+  echo "Missing OctoPlanner PLY map: $OCTO_INPUT_PCD" >&2
+  exit 1
+fi
+if [[ "$LOCALIZATION_BACKEND" == "orbslam3" ]] && \
+   [[ ! -f "$ORB_MAP_DIRECTORY/$ORB_ATLAS_NAME.osa" ]]; then
+  echo "Missing ORB-SLAM3 atlas: $ORB_MAP_DIRECTORY/$ORB_ATLAS_NAME.osa" >&2
+  exit 1
+fi
+
+exec ros2 launch bxi_cuvslam_localization elf3_cuvslam_nav.launch.py \
+  localization_backend:="$LOCALIZATION_BACKEND" \
+  rtabmap_database:="$RTABMAP_DATABASE" \
+  orb_map_directory:="$ORB_MAP_DIRECTORY" \
+  orb_atlas_name:="$ORB_ATLAS_NAME" \
+  orb_max_time_diff:="$ORB_MAX_TIME_DIFF" \
+  orb_settings:="$ORB_SETTINGS" \
+  cuvslam_map_directory:="$CUVSLAM_MAP_DIRECTORY" \
+  input_pcd:="$OCTO_INPUT_PCD" \
+  start_scan_planner:="$START_SCAN_PLANNER" \
+  start_octo_global_planner:="$START_OCTO_GLOBAL_PLANNER" \
+  start_rviz:="$START_RVIZ" \
+  "${EXTRA_ARGS[@]}"

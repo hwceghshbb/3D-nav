@@ -1,182 +1,121 @@
-# BXI ELF3 3D Navigation Scaffold
+# bxi_scan_nav
 
-This package is the ROS2 integration layer for running the BXI ELF3 in a MuJoCo
-indoor scene with a simulated Intel RealSense D435i. The default scene is an
-OpenHUTB Rooms-DataGen inspired multi-room MJCF layout: simple grey rooms,
-door openings, and a few low obstacles for deterministic navigation tests.
+`bxi_scan_nav` is a standalone ROS 2 mapping and navigation package. It does
+not start or import the robot controller, remote controller, simulator, camera
+driver, or a robot-specific velocity adapter.
 
-## Start
+## Interface contract
 
-Build from `bxi_rl_controller_ros2_example` using the existing `build.sh`, then:
+The robot/sensor bringup stack owns hardware and simulation. Before starting
+navigation it must publish:
 
-```bash
-source /opt/bxi/bxi_ros2_pkg/setup.bash
-source install/setup.bash
-ros2 launch bxi_scan_nav elf3_scan_nav_sim.launch.py
+- RGB image: `sensor_msgs/Image`
+- registered depth image: `sensor_msgs/Image`
+- depth camera calibration: `sensor_msgs/CameraInfo`
+- robot body pose: `nav_msgs/Odometry`
+- depth sensor pose: `nav_msgs/Odometry`, timestamped with the depth image
+- the TF chain between `map`/`odom`, `base_link`, and the camera optical frame
+
+Navigation accepts a goal as `geometry_msgs/PoseStamped` and publishes only a
+standard `geometry_msgs/Twist` velocity command. The defaults are:
+
+```text
+inputs:
+  /camera/color/image_raw
+  /camera/depth/image_rect_raw
+  /camera/depth/camera_info
+  /camera/depth/pose
+  /odom
+  /goal_pose
+
+output:
+  /navigation/cmd_vel
 ```
 
-The launch assumes the existing `mujoco` ROS2 package and the ELF3 policy
-controller are installed. Set `start_controller` to false while debugging only
-the sensor and scene:
+The robot control stack should subscribe to `/navigation/cmd_vel`. If remote
+control and autonomous navigation can both command the robot, arbitration or a
+velocity mux belongs in the robot control stack; only one source may control
+the robot at a time.
+
+## Build
 
 ```bash
-ros2 launch bxi_scan_nav elf3_scan_nav_sim.launch.py start_controller:=false
-```
-
-To launch the BXI room simulation with the ROS 2 SCAN-Planner branch connected:
-
-```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 launch bxi_scan_nav elf3_scan_planner_nav.launch.py start_controller:=false
-```
-
-Use `start_controller:=false` for planner bring-up and visualization. Switch it
-to `true` only after the robot startup policy is ready to consume
-`motion_commands`.
-
-To use OctoPlanner3D as the global planner and keep SCAN-Planner as the local
-planner:
-
-```bash
-source /opt/ros/humble/setup.bash
-source install/setup.bash
-ros2 launch bxi_scan_nav elf3_octo_scan_nav.launch.py start_controller:=false
-```
-
-The Octo node builds an OctoMap from `input_pcd`, subscribes to
-`/simulation/base_footprint/pose` and `/move_base_simple/goal`, then publishes
-the 3D global path on `/initial_path` for SCAN-Planner `fsm.navi_mode:=3`.
-Override `input_pcd:=/path/to/map.pcd` when using a map that matches the
-current MuJoCo scene.
-
-To launch the full RTAB-Map + global A* + SCAN local planner stack:
-
-```bash
+cd /home/hwc/code/elf-nav/bxi_rl_ros2/bxi_rl_controller_ros2_example
 source /opt/ros/humble/setup.bash
 source /opt/bxi/bxi_ros2_pkg/setup.bash
+colcon build --packages-select bxi_scan_nav --merge-install
 source install/setup.bash
-ros2 launch bxi_scan_nav elf3_rtab_scan_nav.launch.py \
-  start_controller:=false delete_db_on_start:=true
 ```
 
-For RTAB-Map mapping, use the keyboard teleop launch. It starts the ELF3
-controller and RTAB-Map, but disables SCAN and the global planner so manual
-commands are the only source of `motion_commands`:
+## Mapping only
+
+The mapping launch subscribes to external RGB-D and odometry topics and starts
+only RTAB-Map and optional RViz:
 
 ```bash
-ros2 launch bxi_scan_nav elf3_rtab_mapping_keyboard.launch.py
-```
-
-For the PowerA joystick and head-camera cuVSLAM odometry, use:
-
-```bash
-ros2 launch bxi_scan_nav elf3_rtab_mapping_joystick.launch.py \
-  database_path:=$PWD/maps/elf3_features_rtabmap_v2.db \
+ros2 launch bxi_scan_nav elf3_rtab_mapping.launch.py \
+  rgb_topic:=/camera/color/image_raw \
+  depth_topic:=/camera/depth/image_rect_raw \
+  camera_info_topic:=/camera/depth/camera_info \
+  odom_topic:=/odom \
+  base_frame_id:=base_link \
+  map_frame_id:=map \
+  publish_tf_map:=true \
   delete_db_on_start:=true
 ```
 
-The simulation mapping profile uses `424x240 @ 30 Hz` so RGB-D odometry can
-run in real time. The left stick controls forward/lateral motion, axis 6
-controls yaw, A selects the normal policy, B requests recovery, and Y selects
-the depth/stair policy. During this RTAB mapping launch the cuVSLAM SLAM
-backend is disabled deliberately; RTAB-Map owns loop closure and the saved
-database is the localization map.
-
-The cuVSLAM mapping process starts 10 seconds after launch so the controller
-can finish both MuJoCo reset steps. Wait for `Head RGB-D input ready=True`
-before moving the robot.
-
-Keyboard controls:
-
-- `w/s`: latch forward/backward velocity
-- `a/d`: latch left/right velocity
-- `q/e`: latch yaw left/right
-- `x`: clear linear velocity
-- `c`: clear yaw velocity
-- `space`: full stop
-- `1`: normal/stand pulse
-- `2`: recover pulse
-
-Mapping mode is the default (`localization:=false`). After saving a database,
-restart in relocalization mode with the same `database_path`:
+To use an existing database for localization:
 
 ```bash
-ros2 launch bxi_scan_nav elf3_rtab_scan_nav.launch.py \
-  start_controller:=false localization:=true \
-  database_path:=/tmp/bxi_elf3_rtabmap.db
+ros2 launch bxi_scan_nav elf3_rtab_mapping.launch.py \
+  localization:=true \
+  database_path:=/path/to/map.db
 ```
 
-## Room generation
+## Full navigation
 
-The room generator is based on the OpenHUTB Rooms documentation and its
-Rooms-DataGen topology, but emits native MuJoCo MJCF so it can be loaded by the
-existing BXI simulator:
+The standalone navigation launch starts RTAB-Map, the occupancy-grid global
+planner, SCAN local planner, closed-loop velocity controller, and optional
+RViz. It never starts robot or sensor processes:
 
 ```bash
-ros2 run bxi_scan_nav generate_rooms_mjcf \
-  --output src/bxi_example_py_elf3/data/mujoco_simulation/elf3_rooms_datagen.xml \
-  --rows 2 --cols 3 --room-size 4.0 --door-width 1.35
+ros2 launch bxi_scan_nav elf3_navigation.launch.py \
+  rgb_topic:=/camera/color/image_raw \
+  depth_topic:=/camera/depth/image_rect_raw \
+  camera_info_topic:=/camera/depth/camera_info \
+  odom_topic:=/odom \
+  sensor_pose_topic:=/camera/depth/pose \
+  goal_topic:=/goal_pose \
+  cmd_vel_topic:=/navigation/cmd_vel \
+  base_frame_id:=base_link \
+  map_frame_id:=map
 ```
 
-For the current BXI ELF3 model, write the generated XML into
-`data/mujoco_simulation` so `elf3.xml` and its relative `meshes` directory are
-resolved by MuJoCo. The `--include-file` option is intended for custom robot
-layouts with their own asset paths.
+For navigation against a saved RTAB-Map database:
 
-Reference pages: `https://openhutb.github.io/mujoco_plugin/underwater/packages/Ocean/Rooms/rooms/`
-and `https://openhutb.github.io/mujoco_plugin/underwater/packages/Ocean/Rooms/Rooms-DataGen/`.
+```bash
+ros2 launch bxi_scan_nav elf3_navigation.launch.py \
+  localization:=true \
+  database_path:=/path/to/map.db
+```
 
-The generated multi-floor scene keeps each stair entrance inside the east-room
-door opening and leaves an entry gap in the first two railing sections. After
-changing the scene geometry, create a new RTAB-Map database before navigation;
-an old database describes the previous stair layout.
+Camera intrinsics used by SCAN's local depth map are launch arguments. Override
+`camera_fx`, `camera_fy`, `camera_cx`, and `camera_cy` when the camera profile
+differs from the defaults. For `32FC1` depth in metres, set `depth_scale:=1.0`;
+for `16UC1` depth in millimetres, keep `depth_scale:=1000.0`.
 
-## ROS2 topic contract
+## Ownership boundary
 
-`/simulation/d435i/color/image_raw` and `/simulation/d435i/depth/image_raw`
-are the simulated camera streams. The depth image is `32FC1` in meters.
-`/scan_planner/local_cloud` is generated from depth only; no lidar topic is
-used. `/scan_planner/odom` and `/scan_planner/depth_cloud` are the stable
-planner-facing topics.
-`/cmd_vel` is converted back to BXI `MotionCommands` on
-`motion_commands`.
+```text
+robot/camera stack                         bxi_scan_nav
+------------------                        ------------
+publish RGB-D --------------------------> RTAB-Map
+publish odometry and sensor pose --------> global/local planning
+publish TF ------------------------------> mapping and frame transforms
+subscribe /navigation/cmd_vel <---------- closed-loop controller
+```
 
-For SCAN-Planner, `/simulation/d435i/depth/pose` is published from
-`/simulation/odom` using the D435i optical-frame offset, then synchronized with
-`/simulation/d435i/depth/image_raw` by `scan_planner_node`.
-The same pose node also publishes TF from `world` to
-`d435i_depth_optical_frame`, and the mapping launch publishes live depth points
-on `/simulation/d435i/depth/points` for RViz.
-
-In RViz, set `Fixed Frame` to `world`, then add:
-
-- `PointCloud2`: `/simulation/d435i/depth/points`
-- `Map`: `/rtabmap/map`
-
-## RTAB-Map and global planning
-
-`elf3_rtab_scan_nav.launch.py` adds RTAB-Map as the mapping/relocalization
-front end. RTAB-Map consumes the simulated D435i RGB-D stream and
-`/simulation/d435i/depth/pose`, then publishes the 2D occupancy grid on
-`/rtabmap/map`.
-
-`rtabmap_grid_astar_planner` subscribes to `/rtabmap/map`, `/simulation/odom`,
-and `/move_base_simple/goal`. It runs map-level A* on the RTAB occupancy grid
-and publishes:
-
-- `/initial_path`: sparse `nav_msgs/Path` consumed by SCAN-Planner in
-  `fsm.navi_mode:=3`
-- `/rtabmap_global_path`: same path for RViz/debugging
-
-SCAN-Planner still performs the D435i depth based local 3D collision-aware
-planning and replanning. Its internal `dyn_a_star` is used inside the local
-trajectory optimizer over the sliding local grid; it is not a full RTAB-map
-global planner by itself.
-
-## SCAN-Planner integration
-
-The integrated ROS 2 SCAN-Planner branch consumes D435i depth directly. The
-plain SCAN launch uses `fsm.navi_mode:=1` for single-goal local planning. The
-RTAB launch uses `fsm.navi_mode:=3`, where SCAN follows `/initial_path` from the
-global planner and locally replans around newly observed obstacles.
+The installed package contains only `elf3_rtab_mapping.launch.py` and
+`elf3_navigation.launch.py`. Legacy simulation/controller bringup files are no
+longer installed by `bxi_scan_nav` and should be owned by their respective
+robot, camera, or simulation packages.

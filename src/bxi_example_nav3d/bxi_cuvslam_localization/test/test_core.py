@@ -6,9 +6,11 @@ from bxi_cuvslam_localization.core import (
     covariance_is_acceptable,
     head_lock_error,
     max_timestamp_delta_ms,
+    initial_pose_alignment,
     pose_error,
     quaternion_is_valid,
     timestamps_within_limit,
+    transform_pose,
 )
 from bxi_cuvslam_localization.head_cuvslam_node import compose_pose, inverse_pose
 
@@ -75,6 +77,24 @@ def test_pose_error_reports_rotation_angle():
         [0.0, 0.0, 0.0, 1.0],
     )
     assert math.isclose(rotation, math.pi / 2.0)
+
+
+def test_initial_pose_alignment_sets_base_height_and_preserves_motion():
+    source_position = [-0.0628, -0.0175, -0.2515]
+    source_quaternion = [0.0, 0.0, 0.0, 1.0]
+    alignment = initial_pose_alignment(
+        source_position, source_quaternion, [0.0, 0.0, 1.1]
+    )
+    anchored_position, anchored_quaternion = transform_pose(
+        *alignment, source_position, source_quaternion
+    )
+    assert np.allclose(anchored_position, [0.0, 0.0, 1.1])
+    assert np.allclose(anchored_quaternion, [0.0, 0.0, 0.0, 1.0])
+
+    moved_position, _ = transform_pose(
+        *alignment, [source_position[0] + 2.0, source_position[1], source_position[2]], source_quaternion
+    )
+    assert np.allclose(moved_position, [2.0, 0.0, 1.1])
 
 
 def test_map_origin_pose_composition():

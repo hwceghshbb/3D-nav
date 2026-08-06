@@ -1,0 +1,54 @@
+%YAML:1.0
+Camera.type: "PinHole"
+Camera.fx: 454.72
+Camera.fy: 454.72
+Camera.cx: 320.0
+Camera.cy: 180.0
+Camera.k1: 0.0
+Camera.k2: 0.0
+Camera.p1: 0.0
+Camera.p2: 0.0
+Camera.width: 640
+Camera.height: 360
+Camera.fps: 30.0
+Camera.RGB: 1
+Camera.imageScale: 1.0
+Camera.bf: 34.10
+ThDepth: 40.0
+DepthMapFactor: 1000.0
+
+# The ROS wrapper converts the simulated base-frame IMU samples to optical
+# camera axes before feeding ORB-SLAM3, so its internal IMU/camera transform is
+# identity. Use the calibrated camera IMU transform in the hardware profile.
+Tbc: !!opencv-matrix
+   rows: 4
+   cols: 4
+   dt: f
+   data: [1.0, 0.0, 0.0, 0.0,
+          0.0, 1.0, 0.0, 0.0,
+          0.0, 0.0, 1.0, 0.0,
+           0.0, 0.0, 0.0, 1.0]
+IMU.NoiseGyro: 1.0e-3
+IMU.NoiseAcc: 1.0e-2
+IMU.GyroWalk: 1.0e-5
+IMU.AccWalk: 1.0e-4
+IMU.Frequency: 500
+IMU.fastInit: 0
+InsertKFsWhenLost: 0
+
+ORBextractor.nFeatures: 1600
+ORBextractor.scaleFactor: 1.2
+ORBextractor.nLevels: 8
+ORBextractor.iniThFAST: 15
+ORBextractor.minThFAST: 5
+
+Viewer.KeyFrameSize: 0.05
+Viewer.KeyFrameLineWidth: 1.0
+Viewer.GraphLineWidth: 0.9
+Viewer.PointSize: 2.0
+Viewer.CameraSize: 0.08
+Viewer.CameraLineWidth: 3.0
+Viewer.ViewpointX: 0.0
+Viewer.ViewpointY: -0.7
+Viewer.ViewpointZ: -3.5
+Viewer.ViewpointF: 500.0

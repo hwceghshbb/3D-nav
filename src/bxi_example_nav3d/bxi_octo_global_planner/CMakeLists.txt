@@ -23,16 +23,32 @@ if(NOT EXISTS "${OCTO_PLANNER3D_ROOT}/planner/include/global_planner.h")
   message(FATAL_ERROR "OCTO_PLANNER3D_ROOT does not point to OctoPlanner3D-ROS2: ${OCTO_PLANNER3D_ROOT}")
 endif()
 
+# Strip the original build machine's RUNPATH from private copies of the
+# bundled OctoMap libraries before linking and installing them.
+set(PORTABLE_OCTOMAP_LIBRARY
+  "${CMAKE_CURRENT_BINARY_DIR}/portable_lib/liboctomap.so.1.10")
+set(PORTABLE_OCTOMATH_LIBRARY
+  "${CMAKE_CURRENT_BINARY_DIR}/portable_lib/liboctomath.so.1.10")
+file(MAKE_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/portable_lib")
+configure_file(
+  "${OCTO_PLANNER3D_ROOT}/lib/liboctomap.so.1.10"
+  "${PORTABLE_OCTOMAP_LIBRARY}" COPYONLY)
+configure_file(
+  "${OCTO_PLANNER3D_ROOT}/lib/liboctomath.so.1.10"
+  "${PORTABLE_OCTOMATH_LIBRARY}" COPYONLY)
+file(RPATH_REMOVE FILE "${PORTABLE_OCTOMAP_LIBRARY}")
+file(RPATH_REMOVE FILE "${PORTABLE_OCTOMATH_LIBRARY}")
+
 # OctoPlanner3D ships prebuilt OctoMap shared libraries in its lib directory.
 add_library(octomap SHARED IMPORTED GLOBAL)
 set_target_properties(octomap PROPERTIES
-  IMPORTED_LOCATION "${OCTO_PLANNER3D_ROOT}/lib/liboctomap.so.1.10"
+  IMPORTED_LOCATION "${PORTABLE_OCTOMAP_LIBRARY}"
   INTERFACE_INCLUDE_DIRECTORIES "${OCTO_PLANNER3D_ROOT}/octomap/include"
 )
 
 add_library(octomath SHARED IMPORTED GLOBAL)
 set_target_properties(octomath PROPERTIES
-  IMPORTED_LOCATION "${OCTO_PLANNER3D_ROOT}/lib/liboctomath.so.1.10"
+  IMPORTED_LOCATION "${PORTABLE_OCTOMATH_LIBRARY}"
   INTERFACE_INCLUDE_DIRECTORIES "${OCTO_PLANNER3D_ROOT}/octomap/include"
 )
 
@@ -73,12 +89,18 @@ ament_target_dependencies(
 )
 set_target_properties(octo_global_planner_node PROPERTIES
   BUILD_RPATH "${OCTO_PLANNER3D_ROOT}/lib"
-  INSTALL_RPATH "${OCTO_PLANNER3D_ROOT}/lib"
+  INSTALL_RPATH "$ORIGIN/.."
+  INSTALL_RPATH_USE_LINK_PATH FALSE
 )
 
 install(TARGETS
   octo_global_planner_node
   DESTINATION lib/${PROJECT_NAME}
+)
+install(FILES
+  "${PORTABLE_OCTOMAP_LIBRARY}"
+  "${PORTABLE_OCTOMATH_LIBRARY}"
+  DESTINATION lib
 )
 
 ament_package()

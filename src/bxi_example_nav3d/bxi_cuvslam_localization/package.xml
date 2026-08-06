@@ -11,8 +11,10 @@
   <exec_depend>ament_index_python</exec_depend>
   <exec_depend>bxi_depth_camera</exec_depend>
   <exec_depend>bxi_scan_nav</exec_depend>
+  <exec_depend>communication</exec_depend>
   <exec_depend>diagnostic_msgs</exec_depend>
   <exec_depend>geometry_msgs</exec_depend>
+  <exec_depend>imu_filter_madgwick</exec_depend>
   <exec_depend>launch</exec_depend>
   <exec_depend>launch_ros</exec_depend>
   <exec_depend>nav_msgs</exec_depend>
