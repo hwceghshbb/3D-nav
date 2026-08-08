@@ -16,6 +16,7 @@ RTABMAP_USE_IMU="${RTABMAP_USE_IMU:-false}"
 RTABMAP_FILTER_IMU="${RTABMAP_FILTER_IMU:-false}"
 RTABMAP_FORCE_3DOF="${RTABMAP_FORCE_3DOF:-true}"
 RTABMAP_USE_INTRA_PROCESS="${RTABMAP_USE_INTRA_PROCESS:-true}"
+RTABMAP_MOTION_PROFILE="${RTABMAP_MOTION_PROFILE:-realtime}"
 ENFORCE_FLAT_FLOOR="${ENFORCE_FLAT_FLOOR:-true}"
 NAV_CAMERA_NAME="${NAV_CAMERA_NAME:-head_depth_camera}"
 IMU_TOPIC="${IMU_TOPIC:-/hardware/$NAV_CAMERA_NAME/imu}"
@@ -88,6 +89,7 @@ exec ros2 launch bxi_cuvslam_localization elf3_cuvslam_nav.launch.py \
   rtabmap_filter_imu:="$RTABMAP_FILTER_IMU" \
   rtabmap_force_3dof:="$RTABMAP_FORCE_3DOF" \
   rtabmap_use_intra_process:="$RTABMAP_USE_INTRA_PROCESS" \
+  rtabmap_motion_profile:="$RTABMAP_MOTION_PROFILE" \
   enforce_flat_floor:="$ENFORCE_FLAT_FLOOR" \
   imu_topic:="$IMU_TOPIC" \
   color_topic:="/hardware/$NAV_CAMERA_NAME/color/image_raw" \

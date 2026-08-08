@@ -149,25 +149,56 @@ def launch_setup(context, *args, **kwargs):
     rtabmap_force_3dof = as_bool(
         LaunchConfiguration("rtabmap_force_3dof").perform(context)
     )
-    if rtabmap_motion_profile not in ("stable", "fast"):
-        raise RuntimeError("rtabmap_motion_profile must be stable or fast")
+    motion_profiles = {
+        "stable": {
+            "local_map_size": "1600",
+            "bundle_adjustment_frames": "5",
+            "max_features": "1600",
+            "reset_countdown": "10",
+            "grid_size": "1",
+        },
+        "fast": {
+            "local_map_size": "1200",
+            "bundle_adjustment_frames": "3",
+            "max_features": "1200",
+            "reset_countdown": "15",
+            "grid_size": "1",
+        },
+        # The robot's mobile CPU cannot process 1200 features at camera rate.
+        # A spatial grid keeps the reduced feature budget useful in every
+        # image quadrant instead of concentrating it on one textured area.
+        "realtime": {
+            "local_map_size": "900",
+            "bundle_adjustment_frames": "2",
+            "max_features": "900",
+            "reset_countdown": "15",
+            "grid_size": "2",
+        },
+    }
+    if rtabmap_motion_profile not in motion_profiles:
+        raise RuntimeError(
+            "rtabmap_motion_profile must be stable, fast, or realtime"
+        )
+    motion_profile = motion_profiles[rtabmap_motion_profile]
     rtabmap_odom_parameters = {
         "Odom/Strategy": "0",
         "Odom/ImageDecimation": "2",
         "Odom/GuessMotion": "false",
         "Odom/KeyFrameThr": "0.50",
-        "OdomF2M/MaxSize": "1200" if rtabmap_motion_profile == "fast" else "1600",
-        "OdomF2M/BundleAdjustmentMaxFrames": (
-            "3" if rtabmap_motion_profile == "fast" else "5"
-        ),
+        "OdomF2M/MaxSize": motion_profile["local_map_size"],
+        "OdomF2M/BundleAdjustmentMaxFrames": motion_profile[
+            "bundle_adjustment_frames"
+        ],
         "Vis/MinInliers": "20",
-        "Vis/MaxFeatures": "1200" if rtabmap_motion_profile == "fast" else "1600",
+        "Vis/MaxFeatures": motion_profile["max_features"],
+        "Vis/GridRows": motion_profile["grid_size"],
+        "Vis/GridCols": motion_profile["grid_size"],
         "Vis/MinInliersDistribution": "0.005",
         "Vis/MinDepth": "0.25",
         "Vis/MaxDepth": "5.0",
         "Vis/PnPReprojError": "3.0",
         "Odom/FilteringStrategy": "0",
-        "Odom/ResetCountdown": "15" if rtabmap_motion_profile == "fast" else "10",
+        "Odom/ResetCountdown": motion_profile["reset_countdown"],
         "Reg/Force3DoF": "true" if rtabmap_force_3dof else "false",
     }
     rtabmap_mapping_profile = LaunchConfiguration("rtabmap_mapping_profile").perform(
