@@ -490,6 +490,7 @@ def launch_setup(context, *args, **kwargs):
                 odom_topic,
                 odom_frame,
                 require_rig_ready=start_input_guard,
+                anchor_initial_pose=mode != "localization",
                 publish_tf=True,
             )
         )
