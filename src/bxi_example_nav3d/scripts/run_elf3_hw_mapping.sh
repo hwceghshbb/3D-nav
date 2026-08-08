@@ -21,12 +21,15 @@ NAV_CAMERA_NAME="${NAV_CAMERA_NAME:-head_depth_camera}"
 RTABMAP_USE_IMU="${RTABMAP_USE_IMU:-false}"
 RTABMAP_FILTER_IMU="${RTABMAP_FILTER_IMU:-false}"
 RTABMAP_APPROX_SYNC="${RTABMAP_APPROX_SYNC:-true}"
+# The robot camera publisher is an external process. Intra-process is valid
+# only when RealSense is loaded into the same component container as RTAB.
+RTABMAP_USE_INTRA_PROCESS="${RTABMAP_USE_INTRA_PROCESS:-false}"
 RTABMAP_MOTION_PROFILE="${RTABMAP_MOTION_PROFILE:-fast}"
 RTABMAP_MAPPING_PROFILE="${RTABMAP_MAPPING_PROFILE:-balanced}"
 RTABMAP_FORCE_3DOF="${RTABMAP_FORCE_3DOF:-true}"
 RTABMAP_PROCESS_LATEST="${RTABMAP_PROCESS_LATEST:-true}"
-RTABMAP_TOPIC_QUEUE_SIZE="${RTABMAP_TOPIC_QUEUE_SIZE:-100}"
-RTABMAP_SYNC_QUEUE_SIZE="${RTABMAP_SYNC_QUEUE_SIZE:-100}"
+RTABMAP_TOPIC_QUEUE_SIZE="${RTABMAP_TOPIC_QUEUE_SIZE:-15}"
+RTABMAP_SYNC_QUEUE_SIZE="${RTABMAP_SYNC_QUEUE_SIZE:-15}"
 ENFORCE_FLAT_FLOOR="${ENFORCE_FLAT_FLOOR:-true}"
 # The neutral XML/URDF pose puts bxi_base_link at 1.1 m and the camera link
 # 0.2515 m above it, giving the verified 1.3515 m camera height above ground.
@@ -110,6 +113,7 @@ exec ros2 launch bxi_scan_nav elf3_rtab_cuvslam_nav.launch.py \
   head_link_pitch:="$HEAD_LINK_PITCH" \
   head_link_yaw:="$HEAD_LINK_YAW" \
   rtabmap_approx_sync:="$RTABMAP_APPROX_SYNC" \
+  rtabmap_use_intra_process:="$RTABMAP_USE_INTRA_PROCESS" \
   rtabmap_topic_queue_size:="$RTABMAP_TOPIC_QUEUE_SIZE" \
   rtabmap_sync_queue_size:="$RTABMAP_SYNC_QUEUE_SIZE" \
   rtabmap_motion_profile:="$RTABMAP_MOTION_PROFILE" \

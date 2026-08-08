@@ -219,6 +219,9 @@ def launch_setup(context, *args, **kwargs):
     start_input_guard = as_bool(
         LaunchConfiguration("start_input_guard").perform(context)
     )
+    rtabmap_use_intra_process = as_bool(
+        LaunchConfiguration("rtabmap_use_intra_process").perform(context)
+    )
     rtabmap_approx_sync = (
         "true"
         if as_bool(LaunchConfiguration("rtabmap_approx_sync").perform(context))
@@ -309,7 +312,9 @@ def launch_setup(context, *args, **kwargs):
     if start_input_guard:
         actions.append(input_guard)
     if backend == "rtabmap":
-        intra_process = [{"use_intra_process_comms": True}]
+        intra_process = [
+            {"use_intra_process_comms": rtabmap_use_intra_process}
+        ]
         rgbd_topic = "/rtabmap/rgbd_image"
         odom_topic = "/localization/rtabmap/odom"
         common_parameters = {
@@ -422,11 +427,13 @@ def launch_setup(context, *args, **kwargs):
                         {
                             **common_parameters,
                             **rtabmap_mapping_parameters,
-                            # Reuse the synchronized RGBDImage consumed by odometry.
-                            # This keeps CoreWrapper on the exact same frame and
-                            # avoids a second pair of large raw-image subscriptions.
-                            "subscribe_rgbd": True,
-                            "subscribe_depth": False,
+                            # Humble intra-process RGBDImage must stay
+                            # single-consumer. With an external camera, normal
+                            # DDS delivery supports both consumers and avoids a
+                            # second set of raw full-resolution subscriptions.
+                            "subscribe_rgbd": not rtabmap_use_intra_process,
+                            "subscribe_depth": rtabmap_use_intra_process,
+                            "subscribe_rgb": rtabmap_use_intra_process,
                             "subscribe_odom_info": True,
                             "map_frame_id": map_frame,
                             # Leave this empty so CoreWrapper subscribes to
@@ -461,6 +468,9 @@ def launch_setup(context, *args, **kwargs):
                     ],
                     remappings=[
                         ("rgbd_image", rgbd_topic),
+                        ("rgb/image", color_topic),
+                        ("depth/image", depth_topic),
+                        ("rgb/camera_info", camera_info_topic),
                         ("imu", rtabmap_imu_topic),
                         # Only insert frames whose odometry passed the
                         # continuity, covariance and flat-floor checks in the
@@ -642,8 +652,11 @@ def generate_launch_description():
             DeclareLaunchArgument("imu_topic", default_value="/simulation/imu_data"),
             DeclareLaunchArgument("rtabmap_use_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_approx_sync", default_value="true"),
-            DeclareLaunchArgument("rtabmap_topic_queue_size", default_value="100"),
-            DeclareLaunchArgument("rtabmap_sync_queue_size", default_value="100"),
+            DeclareLaunchArgument(
+                "rtabmap_use_intra_process", default_value="false"
+            ),
+            DeclareLaunchArgument("rtabmap_topic_queue_size", default_value="15"),
+            DeclareLaunchArgument("rtabmap_sync_queue_size", default_value="15"),
             DeclareLaunchArgument("rtabmap_filter_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_imu_world_frame", default_value="enu"),
             DeclareLaunchArgument("rtabmap_imu_gain", default_value="0.1"),

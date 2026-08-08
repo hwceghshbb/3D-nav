@@ -82,6 +82,9 @@ def generate_launch_description():
             DeclareLaunchArgument("max_floor_tilt_rad", default_value="0.30"),
             DeclareLaunchArgument("rtabmap_approx_sync", default_value="false"),
             DeclareLaunchArgument(
+                "rtabmap_use_intra_process", default_value="false"
+            ),
+            DeclareLaunchArgument(
                 "use_realsense_internal_tf", default_value="true"
             ),
             DeclareLaunchArgument("head_link_x", default_value="0.0628"),
@@ -150,6 +153,9 @@ def generate_launch_description():
                     ),
                     "rtabmap_approx_sync": LaunchConfiguration(
                         "rtabmap_approx_sync"
+                    ),
+                    "rtabmap_use_intra_process": LaunchConfiguration(
+                        "rtabmap_use_intra_process"
                     ),
                     "use_realsense_internal_tf": LaunchConfiguration(
                         "use_realsense_internal_tf"

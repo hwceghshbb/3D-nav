@@ -159,6 +159,9 @@ def generate_launch_description():
             DeclareLaunchArgument("imu_topic", default_value="/simulation/imu_data"),
             DeclareLaunchArgument("rtabmap_use_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_approx_sync", default_value="false"),
+            DeclareLaunchArgument(
+                "rtabmap_use_intra_process", default_value="false"
+            ),
             DeclareLaunchArgument("rtabmap_filter_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_imu_world_frame", default_value="enu"),
             DeclareLaunchArgument("rtabmap_imu_gain", default_value="0.1"),
@@ -213,10 +216,10 @@ def generate_launch_description():
             DeclareLaunchArgument("start_rtabmap", default_value="true"),
             DeclareLaunchArgument("rtabmap_localization", default_value="true"),
             DeclareLaunchArgument(
-                "rtabmap_topic_queue_size", default_value="100"
+                "rtabmap_topic_queue_size", default_value="15"
             ),
             DeclareLaunchArgument(
-                "rtabmap_sync_queue_size", default_value="100"
+                "rtabmap_sync_queue_size", default_value="15"
             ),
             DeclareLaunchArgument(
                 "rtabmap_approx_sync_max_interval", default_value="0.04"
@@ -525,6 +528,9 @@ def generate_launch_description():
                             ),
                             "rtabmap_approx_sync": LaunchConfiguration(
                                 "rtabmap_approx_sync"
+                            ),
+                            "rtabmap_use_intra_process": LaunchConfiguration(
+                                "rtabmap_use_intra_process"
                             ),
                             "rtabmap_topic_queue_size": LaunchConfiguration(
                                 "rtabmap_topic_queue_size"
