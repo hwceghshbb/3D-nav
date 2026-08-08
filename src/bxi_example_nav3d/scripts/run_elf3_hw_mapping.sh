@@ -30,6 +30,10 @@ RTABMAP_FORCE_3DOF="${RTABMAP_FORCE_3DOF:-true}"
 RTABMAP_PROCESS_LATEST="${RTABMAP_PROCESS_LATEST:-true}"
 RTABMAP_TOPIC_QUEUE_SIZE="${RTABMAP_TOPIC_QUEUE_SIZE:-15}"
 RTABMAP_SYNC_QUEUE_SIZE="${RTABMAP_SYNC_QUEUE_SIZE:-15}"
+# The Python rig guard deserializes both full-resolution images only to inspect
+# their headers. Keep it out of the production RTAB path; RGBDSync performs the
+# actual timestamp synchronization and reports missing input itself.
+START_INPUT_GUARD="${START_INPUT_GUARD:-false}"
 ENFORCE_FLAT_FLOOR="${ENFORCE_FLAT_FLOOR:-true}"
 # The neutral XML/URDF pose puts bxi_base_link at 1.1 m and the camera link
 # 0.2515 m above it, giving the verified 1.3515 m camera height above ground.
@@ -104,7 +108,7 @@ exec ros2 launch bxi_scan_nav elf3_rtab_cuvslam_nav.launch.py \
   camera_info_topic:="$COLOR_INFO_TOPIC" \
   camera_width:=1280 \
   camera_height:=720 \
-  start_input_guard:=true \
+  start_input_guard:="$START_INPUT_GUARD" \
   require_head_lock:=true \
   enforce_flat_floor:="$ENFORCE_FLAT_FLOOR" \
   use_realsense_internal_tf:=true \
