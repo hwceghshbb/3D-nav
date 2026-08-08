@@ -34,6 +34,9 @@ RTABMAP_SYNC_QUEUE_SIZE="${RTABMAP_SYNC_QUEUE_SIZE:-15}"
 # their headers. Keep it out of the production RTAB path; RGBDSync performs the
 # actual timestamp synchronization and reports missing input itself.
 START_INPUT_GUARD="${START_INPUT_GUARD:-false}"
+# The robot camera manager publishes images and CameraInfo, but not the
+# RealSense optical-frame TF tree. Publish the calibrated static rig TF here.
+USE_REALSENSE_INTERNAL_TF="${USE_REALSENSE_INTERNAL_TF:-false}"
 ENFORCE_FLAT_FLOOR="${ENFORCE_FLAT_FLOOR:-true}"
 # The neutral XML/URDF pose puts bxi_base_link at 1.1 m and the camera link
 # 0.2515 m above it, giving the verified 1.3515 m camera height above ground.
@@ -111,7 +114,7 @@ exec ros2 launch bxi_scan_nav elf3_rtab_cuvslam_nav.launch.py \
   start_input_guard:="$START_INPUT_GUARD" \
   require_head_lock:=true \
   enforce_flat_floor:="$ENFORCE_FLAT_FLOOR" \
-  use_realsense_internal_tf:=true \
+  use_realsense_internal_tf:="$USE_REALSENSE_INTERNAL_TF" \
   head_link_z:="$HEAD_LINK_Z" \
   head_link_roll:="$HEAD_LINK_ROLL" \
   head_link_pitch:="$HEAD_LINK_PITCH" \
