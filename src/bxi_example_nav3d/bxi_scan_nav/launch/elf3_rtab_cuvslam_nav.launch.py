@@ -4,7 +4,6 @@ from launch.actions import (
     DeclareLaunchArgument,
     IncludeLaunchDescription,
     OpaqueFunction,
-    SetEnvironmentVariable,
     TimerAction,
 )
 from launch.conditions import IfCondition
@@ -103,10 +102,6 @@ def generate_launch_description():
 
     return LaunchDescription(
         [
-            SetEnvironmentVariable(
-                "FASTRTPS_DEFAULT_PROFILES_FILE",
-                str(cuvslam_share / "config" / "fastdds_large_data.xml"),
-            ),
             DeclareLaunchArgument("rtabmap_database", default_value=str(rtab_map)),
             DeclareLaunchArgument("cuvslam_map", default_value=str(cuvslam_map)),
             DeclareLaunchArgument(
