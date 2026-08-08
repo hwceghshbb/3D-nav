@@ -21,9 +21,9 @@ NAV_CAMERA_NAME="${NAV_CAMERA_NAME:-head_depth_camera}"
 RTABMAP_USE_IMU="${RTABMAP_USE_IMU:-false}"
 RTABMAP_FILTER_IMU="${RTABMAP_FILTER_IMU:-false}"
 RTABMAP_APPROX_SYNC="${RTABMAP_APPROX_SYNC:-true}"
-# The robot camera publisher is an external process. Intra-process is valid
-# only when RealSense is loaded into the same component container as RTAB.
-RTABMAP_USE_INTRA_PROCESS="${RTABMAP_USE_INTRA_PROCESS:-false}"
+# Camera input still arrives through DDS, while RGBDSync, odometry and Core
+# exchange their single-consumer messages in this component container.
+RTABMAP_USE_INTRA_PROCESS="${RTABMAP_USE_INTRA_PROCESS:-true}"
 RTABMAP_MOTION_PROFILE="${RTABMAP_MOTION_PROFILE:-fast}"
 RTABMAP_MAPPING_PROFILE="${RTABMAP_MAPPING_PROFILE:-balanced}"
 RTABMAP_FORCE_3DOF="${RTABMAP_FORCE_3DOF:-true}"

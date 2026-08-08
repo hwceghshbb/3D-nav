@@ -82,7 +82,7 @@ def generate_launch_description():
             DeclareLaunchArgument("max_floor_tilt_rad", default_value="0.30"),
             DeclareLaunchArgument("rtabmap_approx_sync", default_value="false"),
             DeclareLaunchArgument(
-                "rtabmap_use_intra_process", default_value="false"
+                "rtabmap_use_intra_process", default_value="true"
             ),
             DeclareLaunchArgument(
                 "use_realsense_internal_tf", default_value="true"

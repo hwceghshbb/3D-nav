@@ -160,7 +160,7 @@ def generate_launch_description():
             DeclareLaunchArgument("rtabmap_use_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_approx_sync", default_value="false"),
             DeclareLaunchArgument(
-                "rtabmap_use_intra_process", default_value="false"
+                "rtabmap_use_intra_process", default_value="true"
             ),
             DeclareLaunchArgument("rtabmap_filter_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_imu_world_frame", default_value="enu"),

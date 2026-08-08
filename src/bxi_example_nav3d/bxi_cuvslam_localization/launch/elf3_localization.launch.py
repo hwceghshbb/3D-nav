@@ -316,6 +316,7 @@ def launch_setup(context, *args, **kwargs):
             {"use_intra_process_comms": rtabmap_use_intra_process}
         ]
         rgbd_topic = "/rtabmap/rgbd_image"
+        odom_sensor_data_topic = "/rtabmap/odom_sensor_data/raw"
         odom_topic = "/localization/rtabmap/odom"
         common_parameters = {
             "frame_id": "bxi_base_link",
@@ -397,6 +398,10 @@ def launch_setup(context, *args, **kwargs):
                             **rtabmap_odom_parameters,
                             "subscribe_rgbd": True,
                             "subscribe_odom_info": True,
+                            # Republish the processed frame for CoreWrapper.
+                            # This keeps RGBDImage single-consumer while
+                            # preserving a zero-copy odometry-to-core path.
+                            "publish_compressed_sensor_data": False,
                             "imu_queue_size": 2000,
                             "odom_frame_id": odom_frame,
                             # The guarded bridge is the sole odom -> base TF
@@ -427,14 +432,15 @@ def launch_setup(context, *args, **kwargs):
                         {
                             **common_parameters,
                             **rtabmap_mapping_parameters,
-                            # Humble intra-process RGBDImage must stay
-                            # single-consumer. With an external camera, normal
-                            # DDS delivery supports both consumers and avoids a
-                            # second set of raw full-resolution subscriptions.
-                            "subscribe_rgbd": not rtabmap_use_intra_process,
-                            "subscribe_depth": rtabmap_use_intra_process,
-                            "subscribe_rgb": rtabmap_use_intra_process,
+                            # Follow RTAB-Map's official odometry-to-SLAM
+                            # SensorData topology. RGBDImage then has exactly
+                            # one consumer on ROS 2 Humble.
+                            "subscribe_sensor_data": True,
+                            "subscribe_rgbd": False,
+                            "subscribe_depth": False,
+                            "subscribe_rgb": False,
                             "subscribe_odom_info": True,
+                            "approx_sync": False,
                             "map_frame_id": map_frame,
                             # Leave this empty so CoreWrapper subscribes to
                             # /nav/odom.  Setting an odom frame makes it read
@@ -467,10 +473,7 @@ def launch_setup(context, *args, **kwargs):
                         }
                     ],
                     remappings=[
-                        ("rgbd_image", rgbd_topic),
-                        ("rgb/image", color_topic),
-                        ("depth/image", depth_topic),
-                        ("rgb/camera_info", camera_info_topic),
+                        ("sensor_data", odom_sensor_data_topic),
                         ("imu", rtabmap_imu_topic),
                         # Only insert frames whose odometry passed the
                         # continuity, covariance and flat-floor checks in the
@@ -653,7 +656,7 @@ def generate_launch_description():
             DeclareLaunchArgument("rtabmap_use_imu", default_value="false"),
             DeclareLaunchArgument("rtabmap_approx_sync", default_value="true"),
             DeclareLaunchArgument(
-                "rtabmap_use_intra_process", default_value="false"
+                "rtabmap_use_intra_process", default_value="true"
             ),
             DeclareLaunchArgument("rtabmap_topic_queue_size", default_value="15"),
             DeclareLaunchArgument("rtabmap_sync_queue_size", default_value="15"),
