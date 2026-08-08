@@ -3,6 +3,11 @@ from copy import deepcopy
 from nav_msgs.msg import Odometry
 import rclpy
 from rclpy.duration import Duration
+from rclpy.executors import ExternalShutdownException
+try:
+    from rclpy.exceptions import RCLError
+except ImportError:  # ROS 2 Humble exports RCLError from the pybind module.
+    from rclpy._rclpy_pybind11 import RCLError
 from rclpy.node import Node
 from rclpy.qos import DurabilityPolicy, QoSProfile, ReliabilityPolicy
 from rclpy.qos import qos_profile_sensor_data
@@ -91,7 +96,7 @@ def main(args=None):
     node = TfPosePublisher()
     try:
         rclpy.spin(node)
-    except KeyboardInterrupt:
+    except (KeyboardInterrupt, ExternalShutdownException, RCLError):
         pass
     finally:
         node.destroy_node()

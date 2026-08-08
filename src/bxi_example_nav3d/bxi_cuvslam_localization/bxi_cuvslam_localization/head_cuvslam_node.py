@@ -193,7 +193,9 @@ class HeadCuvslamNode(Node):
         parameters = {
             "mode": "localization",
             "color_topic": "/hardware/head_depth_camera/color/image_raw",
-            "depth_topic": "/hardware/head_depth_camera/depth/image_rect_raw",
+            "depth_topic": (
+                "/hardware/head_depth_camera/aligned_depth_to_color/image_raw"
+            ),
             "camera_info_topic": "/hardware/head_depth_camera/color/camera_info",
             "initial_pose_topic": "/initialpose",
             "map_anchor_odom_topic": "",

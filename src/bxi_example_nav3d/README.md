@@ -89,6 +89,29 @@ not run that stream through `depth_image_proc` again. The camera driver must
 also publish `aligned_depth_to_color/camera_info` and its internal TF; the fixed
 `base_link` to camera mount transform must be calibrated on the robot.
 
+Hardware mapping uses exact RGB-D synchronization by default because the
+RealSense SDK-aligned streams have matching timestamps. If another camera
+driver cannot preserve identical timestamps, override
+`rtabmap_approx_sync:=true`; do not use approximate synchronization to hide
+clock or queue problems. The input guard requires ten consecutive synchronized
+frames and a locked head before `/nav/localization_valid` becomes true.
+
+The D435I IMU is optional until its topics and camera TF have been verified.
+After enabling the RealSense united IMU topic, mapping can use it with:
+
+```bash
+RTABMAP_USE_IMU=true RTABMAP_FILTER_IMU=true \
+IMU_TOPIC=/hardware/head_depth_camera/imu \
+./src/bxi_example_nav3d/scripts/run_elf3_hw_mapping.sh rtabmap
+```
+
+Do not substitute the robot body IMU without measuring its time offset and
+calibrating its transform. Hardware TF mode publishes only
+`bxi_base_link -> head_depth_camera_link`; the RealSense driver owns the camera
+internal optical transforms. Mount calibration can be overridden with the
+`head_link_x`, `head_link_y`, `head_link_z`, `head_link_roll`,
+`head_link_pitch`, and `head_link_yaw` launch arguments.
+
 ## Scripts
 
 ```text

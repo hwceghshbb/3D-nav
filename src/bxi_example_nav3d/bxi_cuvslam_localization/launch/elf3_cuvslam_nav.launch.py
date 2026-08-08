@@ -75,8 +75,29 @@ def generate_launch_description():
                 "body_camera_uses_head_mount", default_value="false"
             ),
             DeclareLaunchArgument("start_depth_registration", default_value="false"),
+            DeclareLaunchArgument("start_input_guard", default_value="true"),
+            DeclareLaunchArgument("require_head_lock", default_value="true"),
+            DeclareLaunchArgument("enforce_flat_floor", default_value="true"),
+            DeclareLaunchArgument("max_floor_z_drift_m", default_value="0.12"),
+            DeclareLaunchArgument("max_floor_tilt_rad", default_value="0.30"),
+            DeclareLaunchArgument("rtabmap_approx_sync", default_value="false"),
+            DeclareLaunchArgument(
+                "use_realsense_internal_tf", default_value="true"
+            ),
+            DeclareLaunchArgument("head_link_x", default_value="0.0628"),
+            DeclareLaunchArgument("head_link_y", default_value="0.0175"),
+            DeclareLaunchArgument("head_link_z", default_value="0.2515"),
+            DeclareLaunchArgument("head_link_roll", default_value="0.0"),
+            DeclareLaunchArgument("head_link_pitch", default_value="0.0"),
+            DeclareLaunchArgument("head_link_yaw", default_value="0.0"),
             DeclareLaunchArgument("camera_width", default_value="1280"),
             DeclareLaunchArgument("camera_height", default_value="720"),
+            DeclareLaunchArgument(
+                "imu_topic", default_value="/hardware/head_depth_camera/imu"
+            ),
+            DeclareLaunchArgument("rtabmap_use_imu", default_value="false"),
+            DeclareLaunchArgument("rtabmap_filter_imu", default_value="false"),
+            DeclareLaunchArgument("rtabmap_force_3dof", default_value="true"),
             IncludeLaunchDescription(
                 PythonLaunchDescriptionSource(str(combined_launch)),
                 launch_arguments={
@@ -116,8 +137,38 @@ def generate_launch_description():
                     "start_depth_registration": LaunchConfiguration(
                         "start_depth_registration"
                     ),
+                    "start_input_guard": LaunchConfiguration("start_input_guard"),
+                    "require_head_lock": LaunchConfiguration("require_head_lock"),
+                    "enforce_flat_floor": LaunchConfiguration(
+                        "enforce_flat_floor"
+                    ),
+                    "max_floor_z_drift_m": LaunchConfiguration(
+                        "max_floor_z_drift_m"
+                    ),
+                    "max_floor_tilt_rad": LaunchConfiguration(
+                        "max_floor_tilt_rad"
+                    ),
+                    "rtabmap_approx_sync": LaunchConfiguration(
+                        "rtabmap_approx_sync"
+                    ),
+                    "use_realsense_internal_tf": LaunchConfiguration(
+                        "use_realsense_internal_tf"
+                    ),
+                    "head_link_x": LaunchConfiguration("head_link_x"),
+                    "head_link_y": LaunchConfiguration("head_link_y"),
+                    "head_link_z": LaunchConfiguration("head_link_z"),
+                    "head_link_roll": LaunchConfiguration("head_link_roll"),
+                    "head_link_pitch": LaunchConfiguration("head_link_pitch"),
+                    "head_link_yaw": LaunchConfiguration("head_link_yaw"),
                     "camera_info_topic": LaunchConfiguration("camera_info_topic"),
-                    "imu_topic": "/hardware/imu_data",
+                    "imu_topic": LaunchConfiguration("imu_topic"),
+                    "rtabmap_use_imu": LaunchConfiguration("rtabmap_use_imu"),
+                    "rtabmap_filter_imu": LaunchConfiguration(
+                        "rtabmap_filter_imu"
+                    ),
+                    "rtabmap_force_3dof": LaunchConfiguration(
+                        "rtabmap_force_3dof"
+                    ),
                     "joint_states_topic": "/hardware/joint_states",
                     "body_pose_topic": "/nav/base_footprint/pose",
                     "nav_camera_pose_topic": "/nav/head_depth_camera/pose",

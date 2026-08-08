@@ -1,3 +1,4 @@
+from collections import deque
 from functools import partial
 import math
 
@@ -9,7 +10,12 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image, Imu, JointState
 from std_msgs.msg import Bool
 
-from .core import head_lock_error, max_timestamp_delta_ms, stamp_to_nanoseconds
+from .core import (
+    head_lock_error,
+    max_timestamp_delta_ms,
+    pop_synchronized_timestamps,
+    stamp_to_nanoseconds,
+)
 
 
 class HeadCameraRigGuard(Node):
@@ -17,7 +23,9 @@ class HeadCameraRigGuard(Node):
         super().__init__("head_camera_rig_guard")
         defaults = {
             "head_color_topic": "/hardware/head_depth_camera/color/image_raw",
-            "head_depth_topic": "/hardware/head_depth_camera/depth/image_rect_raw",
+            "head_depth_topic": (
+                "/hardware/head_depth_camera/aligned_depth_to_color/image_raw"
+            ),
         }
         for name, value in defaults.items():
             self.declare_parameter(name, value)
@@ -35,13 +43,19 @@ class HeadCameraRigGuard(Node):
         self.declare_parameter("head_z_target_rad", 0.0)
         self.declare_parameter("head_y_target_rad", 0.0)
         self.declare_parameter("required_good_sets", 10)
+        self.declare_parameter("max_consecutive_sync_drops", 3)
 
         self.image_stamps = {}
+        self.image_stamp_queues = {
+            "head_color_topic": deque(maxlen=30),
+            "head_depth_topic": deque(maxlen=30),
+        }
         self.image_received_ns = {}
         self.last_pair_stamp = None
         self.last_head_pair_delta_ms = math.inf
         self.last_set_synchronized = False
         self.good_sets = 0
+        self.consecutive_sync_drops = 0
         self.joint_positions = {}
         self.last_joint_received_ns = None
         self.last_imu_received_ns = None
@@ -81,25 +95,40 @@ class HeadCameraRigGuard(Node):
         self.publish_ready(False)
 
     def image_callback(self, name, message):
-        self.image_stamps[name] = stamp_to_nanoseconds(message.header.stamp)
+        stamp_ns = stamp_to_nanoseconds(message.header.stamp)
+        self.image_stamps[name] = stamp_ns
+        self.image_stamp_queues[name].append(stamp_ns)
         self.image_received_ns[name] = self.get_clock().now().nanoseconds
         color_key = "head_color_topic"
         depth_key = "head_depth_topic"
-        if color_key not in self.image_stamps or depth_key not in self.image_stamps:
-            return
-        pair_delta_ms = max_timestamp_delta_ms(
-            [self.image_stamps[color_key], self.image_stamps[depth_key]]
+        pair, dropped = pop_synchronized_timestamps(
+            self.image_stamp_queues[color_key],
+            self.image_stamp_queues[depth_key],
+            float(self.get_parameter("rgb_depth_sync_limit_ms").value),
         )
-        if pair_delta_ms > float(
-            self.get_parameter("rgb_depth_sync_limit_ms").value
-        ):
+        if pair is None:
+            if dropped:
+                self.consecutive_sync_drops += 1
+                allowed = max(
+                    0,
+                    int(
+                        self.get_parameter(
+                            "max_consecutive_sync_drops"
+                        ).value
+                    ),
+                )
+                if self.consecutive_sync_drops > allowed:
+                    self.last_set_synchronized = False
+                    self.good_sets = 0
             return
-        pair_stamp = max(self.image_stamps[color_key], self.image_stamps[depth_key])
+        pair_delta_ms = max_timestamp_delta_ms(pair)
+        pair_stamp = max(pair)
         if self.last_pair_stamp == pair_stamp:
             return
         self.last_pair_stamp = pair_stamp
         self.last_head_pair_delta_ms = pair_delta_ms
         self.last_set_synchronized = True
+        self.consecutive_sync_drops = 0
         self.good_sets += 1
 
     def joint_callback(self, message):
@@ -130,6 +159,12 @@ class HeadCameraRigGuard(Node):
             now_ns - received_ns <= image_timeout_ns
             for received_ns in self.image_received_ns.values()
         )
+        if not images_fresh:
+            self.last_set_synchronized = False
+            self.good_sets = 0
+            self.consecutive_sync_drops = 0
+            for queue in self.image_stamp_queues.values():
+                queue.clear()
         imu_fresh = not bool(self.get_parameter("require_imu").value) or (
             self.last_imu_received_ns is not None
             and now_ns - self.last_imu_received_ns <= imu_timeout_ns

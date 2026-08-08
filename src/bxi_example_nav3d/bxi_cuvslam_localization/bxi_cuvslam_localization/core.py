@@ -81,6 +81,37 @@ def quaternion_rotate(quaternion, vector):
     )
 
 
+def gravity_tilt_error(reference_quaternion, current_quaternion):
+    """Return the angle between the reference and current body Z axes."""
+    reference_up = quaternion_rotate(reference_quaternion, (0.0, 0.0, 1.0))
+    current_up = quaternion_rotate(current_quaternion, (0.0, 0.0, 1.0))
+    reference_norm = math.sqrt(sum(value * value for value in reference_up))
+    current_norm = math.sqrt(sum(value * value for value in current_up))
+    if reference_norm <= 1e-9 or current_norm <= 1e-9:
+        return math.inf
+    cosine = sum(
+        reference * current
+        for reference, current in zip(reference_up, current_up)
+    ) / (reference_norm * current_norm)
+    return math.acos(max(-1.0, min(1.0, cosine)))
+
+
+def flat_floor_pose_is_plausible(
+    reference_position,
+    reference_quaternion,
+    current_position,
+    current_quaternion,
+    max_z_drift,
+    max_tilt,
+):
+    return (
+        abs(float(current_position[2]) - float(reference_position[2]))
+        <= float(max_z_drift)
+        and gravity_tilt_error(reference_quaternion, current_quaternion)
+        <= float(max_tilt)
+    )
+
+
 def initial_pose_alignment(source_position, source_quaternion, target_position):
     """Return a transform that anchors the first base pose upright at target_position."""
     source_inverse = (
@@ -128,3 +159,53 @@ def pose_error(estimate_position, estimate_quaternion, truth_position, truth_qua
     # q and -q encode the same rotation.
     dot = max(-1.0, min(1.0, abs(dot)))
     return translation_error, 2.0 * math.acos(dot)
+
+
+def pose_increment_is_plausible(
+    previous_position,
+    previous_quaternion,
+    previous_stamp_ns,
+    current_position,
+    current_quaternion,
+    current_stamp_ns,
+    max_translation_jump,
+    max_rotation_jump,
+    max_linear_speed,
+    max_angular_speed,
+):
+    """Check continuity without assuming that pose covariance is meaningful."""
+    dt = (int(current_stamp_ns) - int(previous_stamp_ns)) / 1e9
+    if dt <= 0.0:
+        return False
+    translation, rotation = pose_error(
+        current_position,
+        current_quaternion,
+        previous_position,
+        previous_quaternion,
+    )
+    translation_limit = min(
+        float(max_translation_jump), float(max_linear_speed) * dt + 0.05
+    )
+    rotation_limit = min(
+        float(max_rotation_jump), float(max_angular_speed) * dt + 0.05
+    )
+    return translation <= translation_limit and rotation <= rotation_limit
+
+
+def pop_synchronized_timestamps(first_stamps, second_stamps, limit_ms):
+    """Pop the oldest match, discarding only frames that can no longer pair."""
+    limit_ns = max(0, int(float(limit_ms) * 1e6))
+    dropped = False
+    while first_stamps and second_stamps:
+        first = int(first_stamps[0])
+        second = int(second_stamps[0])
+        if abs(first - second) <= limit_ns:
+            first_stamps.popleft()
+            second_stamps.popleft()
+            return (first, second), dropped
+        if first < second:
+            first_stamps.popleft()
+        else:
+            second_stamps.popleft()
+        dropped = True
+    return None, dropped

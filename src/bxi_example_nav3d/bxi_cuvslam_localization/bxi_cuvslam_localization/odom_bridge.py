@@ -13,8 +13,12 @@ from tf2_ros import TransformBroadcaster
 
 from .core import (
     covariance_is_acceptable,
+    flat_floor_pose_is_plausible,
+    gravity_tilt_error,
     initial_pose_alignment,
+    pose_increment_is_plausible,
     quaternion_is_valid,
+    stamp_to_nanoseconds,
     transform_pose,
 )
 
@@ -37,12 +41,26 @@ class LocalizationOdomBridge(Node):
         self.declare_parameter("anchor_initial_pose", False)
         self.declare_parameter("publish_tf", True)
         self.declare_parameter("initial_base_position", [0.0, 0.0, 1.1])
+        self.declare_parameter("check_pose_continuity", True)
+        self.declare_parameter("max_translation_jump_m", 0.75)
+        self.declare_parameter("max_rotation_jump_rad", 0.70)
+        self.declare_parameter("max_linear_speed_mps", 2.0)
+        self.declare_parameter("max_angular_speed_rps", 3.0)
+        self.declare_parameter("recovery_stable_samples", 5)
+        self.declare_parameter("allow_origin_reset_recovery", False)
+        self.declare_parameter("enforce_flat_floor", False)
+        self.declare_parameter("max_floor_z_drift_m", 0.12)
+        self.declare_parameter("max_floor_tilt_rad", 0.20)
 
         self.rig_ready = not bool(
             self.get_parameter("require_rig_ready").value
         )
         self.last_valid_odom_ns = None
         self.initial_alignment = None
+        self.last_accepted_pose = None
+        self.recovery_pose = None
+        self.recovery_samples = 0
+        self.floor_reference_pose = None
         self.valid = False
         latched_qos = QoSProfile(
             depth=1,
@@ -88,6 +106,12 @@ class LocalizationOdomBridge(Node):
         if not self.rig_ready or not self.message_is_valid(message):
             self.publish_valid(False)
             return
+        if not self.pose_is_continuous(message):
+            self.publish_valid(False)
+            return
+        if not self.pose_is_within_floor_bounds(message):
+            self.publish_valid(False)
+            return
         output = deepcopy(message)
         output.header.frame_id = str(self.get_parameter("odom_frame").value)
         output.child_frame_id = str(self.get_parameter("base_frame").value)
@@ -104,7 +128,110 @@ class LocalizationOdomBridge(Node):
             transform.transform.rotation = output.pose.pose.orientation
             self.tf_broadcaster.sendTransform(transform)
         self.last_valid_odom_ns = self.get_clock().now().nanoseconds
+        self.last_accepted_pose = self.pose_sample(message)
+        self.recovery_pose = None
+        self.recovery_samples = 0
         self.publish_valid(True)
+
+    def pose_is_within_floor_bounds(self, message):
+        if not bool(self.get_parameter("enforce_flat_floor").value):
+            return True
+        current = self.pose_sample(message)
+        if self.floor_reference_pose is None:
+            self.floor_reference_pose = current
+            return True
+        plausible = flat_floor_pose_is_plausible(
+            self.floor_reference_pose[0],
+            self.floor_reference_pose[1],
+            current[0],
+            current[1],
+            float(self.get_parameter("max_floor_z_drift_m").value),
+            float(self.get_parameter("max_floor_tilt_rad").value),
+        )
+        if not plausible:
+            z_drift = abs(current[0][2] - self.floor_reference_pose[0][2])
+            tilt = gravity_tilt_error(
+                self.floor_reference_pose[1], current[1]
+            )
+            self.get_logger().error(
+                "Rejected flat-floor localization drift: "
+                f"z={z_drift:.3f}m tilt={math.degrees(tilt):.1f}deg; "
+                "odom, TF and mapping input are now blocked",
+                throttle_duration_sec=1.0,
+            )
+        return plausible
+
+    @staticmethod
+    def pose_sample(message):
+        pose = message.pose.pose
+        return (
+            (pose.position.x, pose.position.y, pose.position.z),
+            (
+                pose.orientation.x,
+                pose.orientation.y,
+                pose.orientation.z,
+                pose.orientation.w,
+            ),
+            stamp_to_nanoseconds(message.header.stamp),
+        )
+
+    def samples_are_continuous(self, previous, current):
+        return pose_increment_is_plausible(
+            *previous,
+            *current,
+            float(self.get_parameter("max_translation_jump_m").value),
+            float(self.get_parameter("max_rotation_jump_rad").value),
+            float(self.get_parameter("max_linear_speed_mps").value),
+            float(self.get_parameter("max_angular_speed_rps").value),
+        )
+
+    def pose_is_continuous(self, message):
+        if not bool(self.get_parameter("check_pose_continuity").value):
+            return True
+        current = self.pose_sample(message)
+        if current[2] <= 0:
+            return False
+        if self.last_accepted_pose is None:
+            return True
+        if self.samples_are_continuous(self.last_accepted_pose, current):
+            return True
+
+        if self.recovery_pose is None or not self.samples_are_continuous(
+            self.recovery_pose, current
+        ):
+            self.recovery_samples = 1
+        else:
+            self.recovery_samples += 1
+        self.recovery_pose = current
+        required = max(
+            1, int(self.get_parameter("recovery_stable_samples").value)
+        )
+        self.get_logger().warning(
+            "Rejected localization pose discontinuity; "
+            f"stable recovery samples={self.recovery_samples}/{required}",
+            throttle_duration_sec=1.0,
+        )
+        if self.recovery_samples < required:
+            return False
+
+        if not bool(
+            self.get_parameter("allow_origin_reset_recovery").value
+        ):
+            self.get_logger().error(
+                "Localization is stable in a different origin, but automatic "
+                "origin reset recovery is disabled; waiting for relocalization "
+                "into the existing map",
+                throttle_duration_sec=1.0,
+            )
+            return False
+
+        self.get_logger().warning(
+            "Accepting a new localization origin after stable recovery"
+        )
+        self.last_accepted_pose = current
+        self.recovery_pose = None
+        self.recovery_samples = 0
+        return True
 
     def apply_initial_pose_anchor(self, output):
         pose = output.pose.pose

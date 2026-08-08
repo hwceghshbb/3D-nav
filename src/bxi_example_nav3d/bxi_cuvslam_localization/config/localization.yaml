@@ -11,10 +11,10 @@
 
 /cuvslam_imu_combiner:
   ros__parameters:
-    gyro_topic: /hardware/body_depth_camera/gyro/sample
-    accel_topic: /hardware/body_depth_camera/accel/sample
+    gyro_topic: /hardware/head_depth_camera/gyro/sample
+    accel_topic: /hardware/head_depth_camera/accel/sample
     output_topic: /nav/imu
-    output_frame_id: body_depth_camera_imu_frame
+    output_frame_id: head_depth_camera_imu_frame
     max_accel_age_ms: 20.0
     # Initial D435i values. Replace these with the measured IMU Allan variance.
     gyro_variance: 5.9536e-8

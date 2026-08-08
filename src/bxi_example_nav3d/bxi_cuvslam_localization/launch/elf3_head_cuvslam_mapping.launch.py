@@ -24,7 +24,9 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "head_depth_topic",
-                default_value="/hardware/head_depth_camera/depth/image_rect_raw",
+                default_value=(
+                    "/hardware/head_depth_camera/aligned_depth_to_color/image_raw"
+                ),
             ),
             DeclareLaunchArgument(
                 "head_camera_info_topic",

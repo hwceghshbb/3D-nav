@@ -7,6 +7,7 @@ from launch_ros.actions import Node
 # The values below are URDF-derived initial estimates at head_y=head_z=0.
 # Replace them with calibrated base-to-imager extrinsics before real navigation.
 HEAD_CAMERA_TRANSFORM = (0.0628, 0.0175, 0.2515, -1.5708, 0.0, -1.5708)
+HEAD_CAMERA_LINK_TRANSFORM = (0.0628, 0.0175, 0.2515, 0.0, 0.0, 0.0)
 BODY_CAMERA_TRANSFORM = (0.1152, 0.0175, -0.1358, -2.7925, 0.0, -1.5708)
 
 # Factory Depth -> Color calibration for robot D435I serial 261722072591.
@@ -49,7 +50,7 @@ CAMERA_TRANSFORMS = (
 )
 
 
-def static_transform_node(child_frame, transform):
+def static_transform_node(child_frame, transform, parent_frame="bxi_base_link"):
     x, y, z, roll, pitch, yaw = transform
     return Node(
         package="tf2_ros",
@@ -63,7 +64,7 @@ def static_transform_node(child_frame, transform):
             "--roll", str(roll),
             "--pitch", str(pitch),
             "--yaw", str(yaw),
-            "--frame-id", "bxi_base_link",
+            "--frame-id", parent_frame,
             "--child-frame-id", child_frame,
         ],
     )
@@ -102,6 +103,33 @@ def depth_to_color_node(context):
 
 
 def launch_setup(context, *args, **kwargs):
+    use_realsense_internal_tf = (
+        LaunchConfiguration("use_realsense_internal_tf")
+        .perform(context)
+        .lower()
+        in ("1", "true", "yes", "on")
+    )
+    if use_realsense_internal_tf:
+        # RealSense owns camera_link -> optical frames. Publish only the robot
+        # mounting transform so no optical frame has two TF authorities.
+        head_link_transform = tuple(
+            float(LaunchConfiguration(name).perform(context))
+            for name in (
+                "head_link_x",
+                "head_link_y",
+                "head_link_z",
+                "head_link_roll",
+                "head_link_pitch",
+                "head_link_yaw",
+            )
+        )
+        return [
+            static_transform_node("elf3", CAMERA_TRANSFORMS[0][1]),
+            static_transform_node(
+                "head_depth_camera_link", head_link_transform
+            ),
+        ]
+
     body_camera_uses_head_mount = (
         LaunchConfiguration("body_camera_uses_head_mount")
         .perform(context)
@@ -122,6 +150,27 @@ def generate_launch_description():
         [
             DeclareLaunchArgument(
                 "body_camera_uses_head_mount", default_value="false"
+            ),
+            DeclareLaunchArgument(
+                "use_realsense_internal_tf", default_value="false"
+            ),
+            DeclareLaunchArgument(
+                "head_link_x", default_value=str(HEAD_CAMERA_LINK_TRANSFORM[0])
+            ),
+            DeclareLaunchArgument(
+                "head_link_y", default_value=str(HEAD_CAMERA_LINK_TRANSFORM[1])
+            ),
+            DeclareLaunchArgument(
+                "head_link_z", default_value=str(HEAD_CAMERA_LINK_TRANSFORM[2])
+            ),
+            DeclareLaunchArgument(
+                "head_link_roll", default_value=str(HEAD_CAMERA_LINK_TRANSFORM[3])
+            ),
+            DeclareLaunchArgument(
+                "head_link_pitch", default_value=str(HEAD_CAMERA_LINK_TRANSFORM[4])
+            ),
+            DeclareLaunchArgument(
+                "head_link_yaw", default_value=str(HEAD_CAMERA_LINK_TRANSFORM[5])
             ),
             DeclareLaunchArgument(
                 "depth_to_color_x", default_value=str(ROBOT_DEPTH_TO_COLOR[0])

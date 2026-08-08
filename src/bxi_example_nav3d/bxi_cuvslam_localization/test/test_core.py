@@ -1,13 +1,18 @@
 import math
+from collections import deque
 
 import numpy as np
 
 from bxi_cuvslam_localization.core import (
     covariance_is_acceptable,
+    flat_floor_pose_is_plausible,
+    gravity_tilt_error,
     head_lock_error,
     max_timestamp_delta_ms,
     initial_pose_alignment,
     pose_error,
+    pose_increment_is_plausible,
+    pop_synchronized_timestamps,
     quaternion_is_valid,
     timestamps_within_limit,
     transform_pose,
@@ -49,6 +54,28 @@ def test_quaternion_validation():
     assert not quaternion_is_valid((0.0, 0.0, 0.0, 1.2))
 
 
+def test_flat_floor_guard_ignores_yaw_but_rejects_tilt_and_z_drift():
+    identity = (0.0, 0.0, 0.0, 1.0)
+    yaw = (0.0, 0.0, math.sin(0.5), math.cos(0.5))
+    pitch = (0.0, math.sin(0.15), 0.0, math.cos(0.15))
+    assert math.isclose(gravity_tilt_error(identity, yaw), 0.0)
+    assert flat_floor_pose_is_plausible(
+        (0.0, 0.0, 1.1), identity,
+        (4.0, -3.0, 1.15), yaw,
+        0.12, 0.20,
+    )
+    assert not flat_floor_pose_is_plausible(
+        (0.0, 0.0, 1.1), identity,
+        (0.0, 0.0, 1.25), identity,
+        0.12, 0.20,
+    )
+    assert not flat_floor_pose_is_plausible(
+        (0.0, 0.0, 1.1), identity,
+        (0.0, 0.0, 1.1), pitch,
+        0.12, 0.20,
+    )
+
+
 def test_covariance_thresholds():
     covariance = [0.0] * 36
     covariance[0] = covariance[7] = covariance[14] = 0.1
@@ -77,6 +104,60 @@ def test_pose_error_reports_rotation_angle():
         [0.0, 0.0, 0.0, 1.0],
     )
     assert math.isclose(rotation, math.pi / 2.0)
+
+
+def test_pose_increment_accepts_normal_robot_motion():
+    assert pose_increment_is_plausible(
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+        1_000_000_000,
+        [0.20, 0.0, 0.0],
+        [0.0, 0.0, math.sin(0.1), math.cos(0.1)],
+        1_500_000_000,
+        0.30,
+        0.30,
+        1.0,
+        1.0,
+    )
+
+
+def test_pose_increment_rejects_jump_and_non_monotonic_stamp():
+    common = (
+        [0.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+        1_000_000_000,
+    )
+    limits = (0.30, 0.30, 1.0, 1.0)
+    assert not pose_increment_is_plausible(
+        *common,
+        [2.0, 0.0, 0.0],
+        [0.0, 0.0, 0.0, 1.0],
+        1_100_000_000,
+        *limits,
+    )
+    assert not pose_increment_is_plausible(*common, *common, *limits)
+
+
+def test_timestamp_pairing_waits_for_the_other_stream():
+    colors = deque([1_000_000_000])
+    depths = deque()
+    pair, dropped = pop_synchronized_timestamps(colors, depths, 2.0)
+    assert pair is None
+    assert not dropped
+    assert list(colors) == [1_000_000_000]
+
+    depths.append(1_001_000_000)
+    pair, dropped = pop_synchronized_timestamps(colors, depths, 2.0)
+    assert pair == (1_000_000_000, 1_001_000_000)
+    assert not dropped
+
+
+def test_timestamp_pairing_discards_frames_outside_the_window():
+    colors = deque([1_000_000_000, 1_010_000_000])
+    depths = deque([1_010_500_000])
+    pair, dropped = pop_synchronized_timestamps(colors, depths, 2.0)
+    assert pair == (1_010_000_000, 1_010_500_000)
+    assert dropped
 
 
 def test_initial_pose_alignment_sets_base_height_and_preserves_motion():

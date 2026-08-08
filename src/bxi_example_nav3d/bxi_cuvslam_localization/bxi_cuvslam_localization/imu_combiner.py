@@ -12,13 +12,13 @@ class ImuCombiner(Node):
     def __init__(self):
         super().__init__("cuvslam_imu_combiner")
         self.declare_parameter(
-            "gyro_topic", "/hardware/body_depth_camera/gyro/sample"
+            "gyro_topic", "/hardware/head_depth_camera/gyro/sample"
         )
         self.declare_parameter(
-            "accel_topic", "/hardware/body_depth_camera/accel/sample"
+            "accel_topic", "/hardware/head_depth_camera/accel/sample"
         )
         self.declare_parameter("output_topic", "/nav/imu")
-        self.declare_parameter("output_frame_id", "body_depth_camera_imu_frame")
+        self.declare_parameter("output_frame_id", "head_depth_camera_imu_frame")
         self.declare_parameter("max_accel_age_ms", 20.0)
         self.declare_parameter("gyro_variance", 5.9536e-8)
         self.declare_parameter("accel_variance", 3.467e-6)

@@ -88,16 +88,18 @@ def generate_launch_description():
             "'.lower() == 'true'",
         ]
     )
-    rtabmap_args = (
-        "--Rtabmap/DetectionRate 2 "
-        "--Reg/Force3DoF false "
-        "--RGBD/ForceOdom3DoF false "
-        "--Grid/3D true "
-        "--Grid/RayTracing true "
-        "--RGBD/CreateOccupancyGrid true "
-        "--Grid/RangeMax 4.5 "
-        "--Grid/MinClusterSize 5"
-    )
+    rtabmap_args = [
+        "--Rtabmap/DetectionRate 2 --Reg/Force3DoF ",
+        LaunchConfiguration("rtabmap_force_3dof"),
+        " --RGBD/ForceOdom3DoF ",
+        LaunchConfiguration("rtabmap_force_3dof"),
+        " --Optimizer/Slam2D ",
+        LaunchConfiguration("rtabmap_force_3dof"),
+        " --Grid/3D true --Grid/RayTracing true "
+        "--RGBD/CreateOccupancyGrid true --Mem/UseOdomGravity true "
+        "--Optimizer/GravitySigma 0.3 --Grid/RangeMax 4.5 "
+        "--Grid/MinClusterSize 5",
+    ]
 
     return LaunchDescription(
         [
@@ -117,6 +119,13 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("orb_atlas_name", default_value="atlas"),
             DeclareLaunchArgument("orb_max_time_diff", default_value="0.01"),
+            DeclareLaunchArgument("orb_sensor_mode", default_value="rgbd"),
+            DeclareLaunchArgument(
+                "orb_imu_topic", default_value=LaunchConfiguration("imu_topic")
+            ),
+            DeclareLaunchArgument(
+                "orb_imu_axis_mode", default_value="ros_base_to_orb_camera"
+            ),
             DeclareLaunchArgument(
                 "orb_settings",
                 default_value=str(
@@ -154,17 +163,22 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument("imu_topic", default_value="/simulation/imu_data"),
             DeclareLaunchArgument("rtabmap_use_imu", default_value="false"),
+            DeclareLaunchArgument("rtabmap_approx_sync", default_value="false"),
             DeclareLaunchArgument("rtabmap_filter_imu", default_value="false"),
+            DeclareLaunchArgument("rtabmap_imu_world_frame", default_value="enu"),
+            DeclareLaunchArgument("rtabmap_imu_gain", default_value="0.1"),
+            DeclareLaunchArgument("rtabmap_imu_zeta", default_value="0.0"),
             DeclareLaunchArgument(
                 "rtabmap_motion_profile", default_value="stable"
             ),
+            DeclareLaunchArgument("rtabmap_force_3dof", default_value="false"),
             DeclareLaunchArgument(
                 "rtabmap_mapping_profile", default_value="balanced"
             ),
             DeclareLaunchArgument("use_sim_time", default_value="false"),
             DeclareLaunchArgument(
                 "rtabmap_odom_always_process_most_recent_frame",
-                default_value="true",
+                default_value="false",
             ),
             DeclareLaunchArgument(
                 "joint_states_topic", default_value="/simulation/joint_states"
@@ -182,6 +196,20 @@ def generate_launch_description():
             DeclareLaunchArgument(
                 "body_camera_uses_head_mount", default_value="false"
             ),
+            DeclareLaunchArgument("start_input_guard", default_value="true"),
+            DeclareLaunchArgument("require_head_lock", default_value="true"),
+            DeclareLaunchArgument("enforce_flat_floor", default_value="false"),
+            DeclareLaunchArgument("max_floor_z_drift_m", default_value="0.12"),
+            DeclareLaunchArgument("max_floor_tilt_rad", default_value="0.30"),
+            DeclareLaunchArgument(
+                "use_realsense_internal_tf", default_value="false"
+            ),
+            DeclareLaunchArgument("head_link_x", default_value="0.0628"),
+            DeclareLaunchArgument("head_link_y", default_value="0.0175"),
+            DeclareLaunchArgument("head_link_z", default_value="0.2515"),
+            DeclareLaunchArgument("head_link_roll", default_value="0.0"),
+            DeclareLaunchArgument("head_link_pitch", default_value="0.0"),
+            DeclareLaunchArgument("head_link_yaw", default_value="0.0"),
             DeclareLaunchArgument("start_simulation", default_value="true"),
             DeclareLaunchArgument("start_simulated_cameras", default_value="true"),
             DeclareLaunchArgument("start_controller", default_value="true"),
@@ -253,6 +281,9 @@ def generate_launch_description():
                 launch_arguments={
                     "body_camera_uses_head_mount": LaunchConfiguration(
                         "body_camera_uses_head_mount"
+                    ),
+                    "use_realsense_internal_tf": LaunchConfiguration(
+                        "use_realsense_internal_tf"
                     ),
                 }.items(),
             ),
@@ -436,7 +467,7 @@ def generate_launch_description():
                     "qos_camera_info": "2",
                     "qos_odom": "1",
                     "wait_for_transform": "0.1",
-                    "approx_sync": "true",
+                    "approx_sync": LaunchConfiguration("rtabmap_approx_sync"),
                     "approx_sync_max_interval": LaunchConfiguration(
                         "rtabmap_approx_sync_max_interval"
                     ),
@@ -451,12 +482,24 @@ def generate_launch_description():
                             "' == 'orbslam3' else 'true'",
                         ]
                     ),
-                    "rgbd_topic": "/localization/orbslam3/rgbd_image",
-                    "approx_rgbd_sync": "true",
+                    "rgbd_topic": PythonExpression(
+                        [
+                            "'/localization/orbslam3/rgbd_image' if '",
+                            LaunchConfiguration("localization_backend"),
+                            "' == 'orbslam3' else 'rgbd_image'",
+                        ]
+                    ),
+                    "approx_rgbd_sync": LaunchConfiguration(
+                        "rtabmap_approx_sync"
+                    ),
                     "subscribe_rgbd": "true",
                     "visual_odometry": "false",
                     "icp_odometry": "false",
                     "odom_topic": "/nav/odom",
+                    # ORB-SLAM3/cuVSLAM already own inertial fusion. Feeding
+                    # raw acceleration-only IMU into RTAB creates invalid
+                    # orientation callbacks and duplicates fusion.
+                    "imu_topic": "/localization/rtabmap/unused_imu",
                     "odom_sensor_sync": LaunchConfiguration(
                         "rtabmap_odom_sensor_sync"
                     ),
@@ -485,6 +528,15 @@ def generate_launch_description():
                             "rtabmap_approx_sync_max_interval": LaunchConfiguration(
                                 "rtabmap_approx_sync_max_interval"
                             ),
+                            "rtabmap_approx_sync": LaunchConfiguration(
+                                "rtabmap_approx_sync"
+                            ),
+                            "rtabmap_topic_queue_size": LaunchConfiguration(
+                                "rtabmap_topic_queue_size"
+                            ),
+                            "rtabmap_sync_queue_size": LaunchConfiguration(
+                                "rtabmap_sync_queue_size"
+                            ),
                             "cuvslam_map_directory": LaunchConfiguration(
                                 "cuvslam_map"
                             ),
@@ -494,6 +546,13 @@ def generate_launch_description():
                             "orb_atlas_name": LaunchConfiguration("orb_atlas_name"),
                             "orb_max_time_diff": LaunchConfiguration(
                                 "orb_max_time_diff"
+                            ),
+                            "orb_sensor_mode": LaunchConfiguration(
+                                "orb_sensor_mode"
+                            ),
+                            "orb_imu_topic": LaunchConfiguration("orb_imu_topic"),
+                            "orb_imu_axis_mode": LaunchConfiguration(
+                                "orb_imu_axis_mode"
                             ),
                             "orb_settings": LaunchConfiguration("orb_settings"),
                             "color_topic": LaunchConfiguration("color_topic"),
@@ -509,6 +568,34 @@ def generate_launch_description():
                             ),
                             "body_camera_uses_head_mount": LaunchConfiguration(
                                 "body_camera_uses_head_mount"
+                            ),
+                            "use_realsense_internal_tf": LaunchConfiguration(
+                                "use_realsense_internal_tf"
+                            ),
+                            "head_link_x": LaunchConfiguration("head_link_x"),
+                            "head_link_y": LaunchConfiguration("head_link_y"),
+                            "head_link_z": LaunchConfiguration("head_link_z"),
+                            "head_link_roll": LaunchConfiguration(
+                                "head_link_roll"
+                            ),
+                            "head_link_pitch": LaunchConfiguration(
+                                "head_link_pitch"
+                            ),
+                            "head_link_yaw": LaunchConfiguration("head_link_yaw"),
+                            "start_input_guard": LaunchConfiguration(
+                                "start_input_guard"
+                            ),
+                            "require_head_lock": LaunchConfiguration(
+                                "require_head_lock"
+                            ),
+                            "enforce_flat_floor": LaunchConfiguration(
+                                "enforce_flat_floor"
+                            ),
+                            "max_floor_z_drift_m": LaunchConfiguration(
+                                "max_floor_z_drift_m"
+                            ),
+                            "max_floor_tilt_rad": LaunchConfiguration(
+                                "max_floor_tilt_rad"
                             ),
                             "start_rig_tf": PythonExpression(
                                 [
@@ -527,8 +614,20 @@ def generate_launch_description():
                             "rtabmap_filter_imu": LaunchConfiguration(
                                 "rtabmap_filter_imu"
                             ),
+                            "rtabmap_imu_world_frame": LaunchConfiguration(
+                                "rtabmap_imu_world_frame"
+                            ),
+                            "rtabmap_imu_gain": LaunchConfiguration(
+                                "rtabmap_imu_gain"
+                            ),
+                            "rtabmap_imu_zeta": LaunchConfiguration(
+                                "rtabmap_imu_zeta"
+                            ),
                             "rtabmap_motion_profile": LaunchConfiguration(
                                 "rtabmap_motion_profile"
+                            ),
+                            "rtabmap_force_3dof": LaunchConfiguration(
+                                "rtabmap_force_3dof"
                             ),
                             "rtabmap_mapping_profile": LaunchConfiguration(
                                 "rtabmap_mapping_profile"

@@ -27,7 +27,9 @@ def generate_launch_description():
             ),
             DeclareLaunchArgument(
                 "head_depth_topic",
-                default_value="/hardware/head_depth_camera/depth/image_rect_raw",
+                default_value=(
+                    "/hardware/head_depth_camera/aligned_depth_to_color/image_raw"
+                ),
             ),
             DeclareLaunchArgument(
                 "head_camera_info_topic",
@@ -43,7 +45,11 @@ def generate_launch_description():
             DeclareLaunchArgument("image_timeout_sec", default_value="0.35"),
             DeclareLaunchArgument("odom_timeout_sec", default_value="0.25"),
             DeclareLaunchArgument("start_imu_combiner", default_value="true"),
+            DeclareLaunchArgument(
+                "use_realsense_internal_tf", default_value="false"
+            ),
             DeclareLaunchArgument("start_rig_guard", default_value="true"),
+            DeclareLaunchArgument("require_rig_ready", default_value="true"),
             DeclareLaunchArgument("start_odom_bridge", default_value="true"),
             DeclareLaunchArgument("start_pose_publishers", default_value="true"),
             DeclareLaunchArgument("start_sim_error_monitor", default_value="false"),
@@ -65,7 +71,14 @@ def generate_launch_description():
             DeclareLaunchArgument("enable_slam_backend", default_value="true"),
             DeclareLaunchArgument("auto_relocalize", default_value="true"),
             DeclareLaunchArgument("require_initial_pose", default_value="false"),
-            IncludeLaunchDescription(PythonLaunchDescriptionSource(static_tf_launch)),
+            IncludeLaunchDescription(
+                PythonLaunchDescriptionSource(static_tf_launch),
+                launch_arguments={
+                    "use_realsense_internal_tf": LaunchConfiguration(
+                        "use_realsense_internal_tf"
+                    )
+                }.items(),
+            ),
             Node(
                 package="bxi_cuvslam_localization",
                 executable="imu_combiner",
@@ -153,6 +166,9 @@ def generate_launch_description():
                         ),
                         "odom_timeout_sec": ParameterValue(
                             LaunchConfiguration("odom_timeout_sec"), value_type=float
+                        ),
+                        "require_rig_ready": ParameterValue(
+                            LaunchConfiguration("require_rig_ready"), value_type=bool
                         ),
                     },
                 ],
